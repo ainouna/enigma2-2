@@ -421,16 +421,6 @@ int getLinkedSlotID(int fe)
 }
 %}
 
-bool isFBCLink(int);
-%{
-bool isFBCLink(int fe)
-{
-        eFBCTunerManager *mgr = eFBCTunerManager::getInstance();
-        if (mgr) return mgr->isFBCLink(fe);
-        return false;
-}
-%}
-
 /************** temp *****************/
 
 	/* need a better place for this, i agree. */
