@@ -1,16 +1,17 @@
 #ifndef __lib_dvb_subtitle_h
 #define __lib_dvb_subtitle_h
 
-#include <stdint.h>
 #include <lib/base/object.h>
 #include <lib/dvb/idvb.h>
 #include <lib/dvb/pesparse.h>
 #include <lib/gdi/gpixmap.h>
 
+typedef unsigned char __u8;
+
 struct subtitle_clut_entry
 {
-	uint8_t Y, Cr, Cb, T;
-	uint8_t valid;
+	__u8 Y, Cr, Cb, T;
+	__u8 valid;
 };
 
 struct subtitle_clut
@@ -83,7 +84,7 @@ struct subtitle_page
 
 struct bitstream
 {
-	uint8_t *data;
+	__u8 *data;
 	int size;
 	int avail;
 	int consumed;
@@ -109,14 +110,14 @@ struct eDVBSubtitlePage
 };
 
 class eDVBSubtitleParser
-	:public iObject, public ePESParser, public Object
+	:public iObject, public ePESParser, public sigc::trackable
 {
 	DECLARE_REF(eDVBSubtitleParser);
 	subtitle_page *m_pages;
 	ePtr<iDVBPESReader> m_pes_reader;
 	ePtr<eConnection> m_read_connection;
 	pts_t m_show_time;
-	Signal1<void,const eDVBSubtitlePage&> m_new_subtitle_page;
+	sigc::signal1<void,const eDVBSubtitlePage&> m_new_subtitle_page;
 	int m_composition_page_id, m_ancillary_page_id;
 	bool m_seen_eod;
 	eSize m_display_size;
@@ -125,16 +126,16 @@ public:
 	virtual ~eDVBSubtitleParser();
 	int start(int pid, int composition_page_id, int ancillary_page_id);
 	int stop();
-	void connectNewPage(const Slot1<void, const eDVBSubtitlePage&> &slot, ePtr<eConnection> &connection);
+	void connectNewPage(const sigc::slot1<void, const eDVBSubtitlePage&> &slot, ePtr<eConnection> &connection);
 private:
-	void subtitle_process_line(subtitle_region *region, subtitle_region_object *object, int line, uint8_t *data, int len);
-	int subtitle_process_pixel_data(subtitle_region *region, subtitle_region_object *object, int *linenr, int *linep, uint8_t *data);
-	int subtitle_process_segment(uint8_t *segment);
-	void subtitle_process_pes(uint8_t *buffer, int len);
+	void subtitle_process_line(subtitle_region *region, subtitle_region_object *object, int line, __u8 *data, int len);
+	int subtitle_process_pixel_data(subtitle_region *region, subtitle_region_object *object, int *linenr, int *linep, __u8 *data);
+	int subtitle_process_segment(__u8 *segment);
+	void subtitle_process_pes(__u8 *buffer, int len);
 	void subtitle_redraw_all();
 	void subtitle_reset();
 	void subtitle_redraw(int page_id);
-	void processPESPacket(uint8_t *pkt, int len) { subtitle_process_pes(pkt, len); }
+	void processPESPacket(__u8 *pkt, int len) { subtitle_process_pes(pkt, len); }
 };
 
 #endif

@@ -5,7 +5,7 @@
 
 #include <lib/python/python.h>
 #include <string>
-#include <map>    
+#include <map>
 #include <vector>
 
 class eWidget;
@@ -33,7 +33,6 @@ public:
 	void bindTranslation(const std::string &domain, const std::string &device, int keyin, int keyout, int toggle);
 	void bindToggle(const std::string &domain, const std::string &device, int togglekey);
 	void unbindNativeKey(const std::string &context, int action);
-	void unbindPythonKey(const std::string &context, int key, const std::string &action);
 	void unbindKeyDomain(const std::string &domain);
 
 	void keyPressed(const std::string &device, int key, int flags);
@@ -60,6 +59,20 @@ private:
 
 	std::multimap<int, eActionBinding> m_bindings;
 
+	friend struct compare_string_keybind_native;
+	struct eNativeKeyBinding
+	{
+		std::string m_device;
+		std::string m_domain;
+		int m_key;
+		int m_flags;
+
+//		eActionContext *m_context;
+		int m_action;
+	};
+
+	std::multimap<std::string, eNativeKeyBinding> m_native_keys;
+
 	struct eTranslationBinding
 	{
 		int m_keyin;
@@ -74,20 +87,6 @@ private:
 		std::vector<eTranslationBinding> m_translations;
 	};
 	std::map <std::string, eDeviceBinding> m_rcDevices;
-
-	friend struct compare_string_keybind_native;
-	struct eNativeKeyBinding
-	{
-		std::string m_device;
-		std::string m_domain;
-		int m_key;
-		int m_flags;
-
-//		eActionContext *m_context;
-		int m_action;
-	};
-
-	std::multimap<std::string, eNativeKeyBinding> m_native_keys;
 
 	friend struct compare_string_keybind_python;
 	struct ePythonKeyBinding

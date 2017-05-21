@@ -1,5 +1,4 @@
 #include <cstdio>
-#include <openssl/evp.h>
 
 #include <lib/base/httpstream.h>
 #include <lib/base/eerror.h>
@@ -43,7 +42,7 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 
 	close();
 
-	std::string user_agent = "Enigma2 HbbTV/1.1.1 (+PVR+RTSP+DL;opendroid;;;)";
+	std::string user_agent = "Enigma2 HbbTV/1.1.1 (+PVR+RTSP+DL;Opendroid;;;)";
 	std::string extra_headers = "";
 	size_t pos = uri.find('#');
 	if (pos != std::string::npos)
@@ -64,12 +63,12 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 	}
 
 	int pathindex = uri.find("/", 7);
-	if (pathindex > 0)
+	if (pathindex > 0) 
 	{
 		hostname = uri.substr(7, pathindex - 7);
 		uri = uri.substr(pathindex, uri.length() - pathindex);
-	}
-	else
+	} 
+	else 
 	{
 		hostname = uri.substr(7, uri.length() - 7);
 		uri = "/";
@@ -77,32 +76,16 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 	int authenticationindex = hostname.find("@");
 	if (authenticationindex > 0)
 	{
-		BIO *mbio, *b64bio, *bio;
-		char *p = (char*)NULL;
-		int length = 0;
-		authorizationData = hostname.substr(0, authenticationindex);
+		authorizationData =  base64encode(hostname.substr(0, authenticationindex));
 		hostname = hostname.substr(authenticationindex + 1);
-		mbio = BIO_new(BIO_s_mem());
-		b64bio = BIO_new(BIO_f_base64());
-		bio = BIO_push(b64bio, mbio);
-		BIO_write(bio, authorizationData.c_str(), authorizationData.length());
-		BIO_flush(bio);
-		length = BIO_ctrl(mbio, BIO_CTRL_INFO, 0, (char*)&p);
-		authorizationData = "";
-		if (p && length > 0)
-		{
-			/* base64 output contains a linefeed, which we ignore */
-			authorizationData.append(p, length - 1);
-		}
-		BIO_free_all(bio);
 	}
 	int customportindex = hostname.find(":");
-	if (customportindex > 0)
+	if (customportindex > 0) 
 	{
 		port = atoi(hostname.substr(customportindex + 1, hostname.length() - customportindex - 1).c_str());
 		hostname = hostname.substr(0, customportindex);
-	}
-	else if (customportindex == 0)
+	} 
+	else if (customportindex == 0) 
 	{
 		port = atoi(hostname.substr(1, hostname.length() - 1).c_str());
 		hostname = "localhost";
@@ -320,7 +303,7 @@ ssize_t eHttpStream::syncNextRead(void *buf, ssize_t length)
 		{
 			memcpy(partialPkt, e, partialPktSz);
 		}
-	}
+	} 
 	return (length - partialPktSz);
 }
 
@@ -351,7 +334,7 @@ ssize_t eHttpStream::httpChunkedRead(void *buf, size_t count)
 		{
 			if (0 == currentChunkSize)
 			{
-				do
+				do 
 				{
 					ret = readLine(streamSocket, &tmpBuf, &tmpBufSize);
 					if (ret < 0) return -1;

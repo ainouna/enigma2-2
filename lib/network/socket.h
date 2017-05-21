@@ -15,7 +15,7 @@
 #include <libsig_comp.h>
 #include <lib/base/buffer.h>
 
-class eSocket: public Object
+class eSocket: public sigc::trackable
 {
 private:
 	int issocket;
@@ -29,14 +29,15 @@ protected:
 	ePtr<eSocketNotifier> rsn;
 	eMainloop *mainloop;
 	virtual void notifier(int);
+	int connect(struct addrinfo *addr);
 public:
-	eSocket(eMainloop *ml, int domain = AF_INET);
+	eSocket(eMainloop *ml);
 	eSocket(int socket, int issocket, eMainloop *ml);
 	virtual ~eSocket();
 	int connectToHost(std::string hostname, int port);
-	int getDescriptor();
+	int getDescriptor() const { return socketdesc; }
 	int writeBlock(const char *data, unsigned int len);
-	int setSocket(int socketfd, int issocket, eMainloop *ml);
+	int setSocket(int socketfd, int issocket);
 	int bytesToWrite();
 	int readBlock(char *data, unsigned int maxlen);
 	int bytesAvailable();
@@ -46,19 +47,19 @@ public:
 			// flow control: start/stop data delivery into read buffer.
 	void enableRead();
 	void disableRead();
-
+	
 	void inject(const char *data, int len);
-
+	
 	enum State { Invalid, Idle, HostLookup, Connecting,
 			Listening, Connection, Closing };
 	int state();
-
-	Signal0<void> connectionClosed_;
-	Signal0<void> connected_;
-	Signal0<void> readyRead_;
-	Signal0<void> hangup;
-	Signal1<void,int> bytesWritten_;
-	Signal1<void,int> error_;
+	
+	sigc::signal0<void> connectionClosed_;
+	sigc::signal0<void> connected_;
+	sigc::signal0<void> readyRead_;
+	sigc::signal0<void> hangup;
+	sigc::signal1<void,int> bytesWritten_;
+	sigc::signal1<void,int> error_;
 };
 
 class eUnixDomainSocket: public eSocket

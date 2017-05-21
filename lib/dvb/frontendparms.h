@@ -16,7 +16,6 @@
 
 extern int roundMulti(int value, int m);//round value to multiple of m
 
-
 struct eDVBFrontendParametersSatellite
 {
 #ifndef SWIG
@@ -52,9 +51,7 @@ struct eDVBFrontendParametersSatellite
 	enum {
 		Pilot_Off, Pilot_On, Pilot_Unknown
 	};
-	enum {
-		Band_Unknown, Band_C, Band_Ka, Band_Ku
-	};
+
 	enum {
 		PLS_Root, PLS_Gold, PLS_Combo, PLS_Unknown
 	};
@@ -62,7 +59,6 @@ struct eDVBFrontendParametersSatellite
 	bool no_rotor_command_on_tune;
 	int frequency, symbol_rate;
 	int polarisation, fec, inversion, orbital_position, system, modulation, rolloff, pilot, is_id, pls_mode, pls_code;
-	int plp_id;
 };
 SWIG_ALLOW_OUTPUT_SIMPLE(eDVBFrontendParametersSatellite);
 
@@ -75,12 +71,12 @@ struct eDVBFrontendParametersCable
 		Inversion_Off, Inversion_On, Inversion_Unknown
 	};
 
-	/*
+	/* 
 	 * WARNING: do not change the order of these values, they are used to parse lamedb and cables.xml FEC fields.
 	 * The values are the same as those in eDVBFrontendParametersSatellite.
 	 */
 	enum {
-		FEC_Auto=0, FEC_1_2=1, FEC_2_3=2, FEC_3_4=3, FEC_5_6=4, FEC_7_8=5, FEC_8_9=6, FEC_3_5=7, FEC_4_5=8, FEC_9_10=9, FEC_6_7=10, FEC_None=15
+		FEC_Auto=0, FEC_1_2=1, FEC_2_3=2, FEC_3_4=3, FEC_5_6=4, FEC_7_8=5, FEC_8_9=6, FEC_3_5=7, FEC_4_5=8, FEC_9_10=9, FEC_None=15
 	};
 
 	enum {
@@ -106,7 +102,7 @@ struct eDVBFrontendParametersTerrestrial
 		Bandwidth_8MHz, Bandwidth_7MHz, Bandwidth_6MHz, Bandwidth_Auto, Bandwidth_5MHz, Bandwidth_1_712MHz, Bandwidth_10MHz
 	};
 
-	/*
+	/* 
 	 * WARNING: do not change the order of these values, they are used to parse lamedb and terrestrial.xml FEC fields.
 	 * The values are NOT the same as those in eDVBFrontendParametersSatellite/eDVBFrontendParametersCable
 	 * (and it's too late to fix this now, we would break backward compatibility)
@@ -214,7 +210,6 @@ public:
 	int getRolloff() const;
 	int getPilot() const;
 	int getSystem() const;
-	int getSystems() const;
 	int getIsId() const;
 	int getPLSMode() const;
 	int getPLSCode() const;
@@ -250,7 +245,6 @@ public:
 	int getRolloff() const;
 	int getPilot() const;
 	int getSystem() const;
-	int getSystems() const;
 	int getIsId() const;
 	int getPLSMode() const;
 	int getPLSCode() const;
@@ -272,7 +266,6 @@ public:
 	int getFecInner() const;
 	int getModulation() const;
 	int getSystem() const;
-	int getSystems() const;
 };
 
 class eDVBTerrestrialTransponderData : public eDVBTransponderData
@@ -296,7 +289,6 @@ public:
 	int getHierarchyInformation() const;
 	int getPlpId() const;
 	int getSystem() const;
-	int getSystems() const;
 };
 
 class eDVBATSCTransponderData : public eDVBTransponderData
@@ -313,7 +305,6 @@ public:
 	int getFrequency() const;
 	int getModulation() const;
 	int getSystem() const;
-	int getSystems() const;
 };
 
 class eDVBFrontendData : public iDVBFrontendData

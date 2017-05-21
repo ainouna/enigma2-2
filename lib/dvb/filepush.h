@@ -11,7 +11,7 @@
 class iFilePushScatterGather
 {
 public:
-	virtual void getNextSourceSpan(off_t current_offset, size_t bytes_read, off_t &start, size_t &size)=0;
+	virtual void getNextSourceSpan(off_t current_offset, size_t bytes_read, off_t &start, size_t &size, int blocksize)=0;
 	virtual ~iFilePushScatterGather() {}
 #if defined(__sh__)
 	//Changes in this file are cause e2 doesnt tell the player to play reverse
@@ -19,10 +19,10 @@ public:
 #endif
 };
 
-class eFilePushThread: public eThread, public Object
+class eFilePushThread: public eThread, public sigc::trackable
 {
 public:
-	eFilePushThread(int prio_class=IOPRIO_CLASS_BE, int prio_level=0, int blocksize=188, size_t buffersize=188*1024);
+	eFilePushThread(int blocksize, size_t buffersize);
 	~eFilePushThread();
 	void thread();
 	void stop();
@@ -30,22 +30,20 @@ public:
 
 	void pause();
 	void resume();
-
+	
 	void enablePVRCommit(int);
 	/* stream mode will wait on EOF until more data is available. */
 	void setStreamMode(int);
 	void setScatterGather(iFilePushScatterGather *);
-
+	
 	enum { evtEOF, evtReadError, evtWriteError, evtUser, evtStopped };
-	Signal1<void,int> m_event;
+	sigc::signal1<void,int> m_event;
 
 		/* you can send private events if you want */
 	void sendEvent(int evt);
 protected:
 	virtual void filterRecordData(const unsigned char *data, int len);
 private:
-	int prio_class;
-	int prio;
 	iFilePushScatterGather *m_sg;
 	int m_stop;
 	int m_fd_dest;
@@ -66,20 +64,20 @@ private:
 	void recvEvent(const int &evt);
 };
 
-class eFilePushThreadRecorder: public eThread, public Object
+class eFilePushThreadRecorder: public eThread, public sigc::trackable
 {
 public:
 #if HAVE_AMLOGIC
 	eFilePushThreadRecorder(unsigned char* buffer, size_t buffersize=10*188*1024);
 #else
-	eFilePushThreadRecorder(unsigned char* buffer, size_t buffersize=188*1024);
+	eFilePushThreadRecorder(unsigned char* buffer, size_t buffersize);
 #endif
 	void thread();
 	void stop();
 	void start(int sourcefd);
 
 	enum { evtEOF, evtReadError, evtWriteError, evtUser, evtStopped };
-	Signal1<void,int> m_event;
+	sigc::signal1<void,int> m_event;
 
 	void sendEvent(int evt);
 protected:

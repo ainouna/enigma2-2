@@ -23,7 +23,7 @@ public:
 	};
 
 	void setBackgroundColor(const gRGB &col);
-
+	
 	void setFlag(int flags);
 	void clearFlag(int flags);
 	void setAnimationMode(int mode);

@@ -30,38 +30,40 @@
 #include <lib/python/python.h>
 
 #define MjdToEpochTime(x) (((x##_hi << 8 | x##_lo)-40587)*86400)
-#define BcdTimeToSeconds(x) ((3600 * ((10*((x##_h & 0xF0)>>4)) + (x##_h & 0xF))) + (60 * ((10*((x##_m & 0xF0)>>4)) + (x##_m & 0xF))) + ((10*((x##_s & 0xF0)>>4)) + (x##_s & 0xF)))
+#define BcdTimeToSeconds(x) ((3600 * ((10*((x##_h & 0xF0)>>4)) + (x##_h & 0xF))) + \
+                             (60 * ((10*((x##_m & 0xF0)>>4)) + (x##_m & 0xF))) + \
+                             ((10*((x##_s & 0xF0)>>4)) + (x##_s & 0xF)))
 
 #ifdef ENABLE_MHW_EPG
 
 #define FILE_EQUIV "/etc/mhw_Equiv.epg"
 #define FILE_CHANNELS "/etc/mhw_Chann.epg"
-#define FILE_LOG "/tmp/mhw_Log.epg"
+#define FILE_LOG "/etc/mhw_Log.epg"
 
 #define EPG_REPLAY_LEN 8
 
 typedef struct epg_replay {
-	u_char channel_id							:8;
-	u_char replay_mjd_hi						:8;
-	u_char replay_mjd_lo						:8;
-	u_char replay_time_h						:8;
-	u_char replay_time_m						:8;
-	u_char replay_time_s						:8;
-	u_char reserv1								:8;
+   u_char channel_id                             :8;
+   u_char replay_mjd_hi                          :8;
+   u_char replay_mjd_lo                          :8;
+   u_char replay_time_h                          :8;
+   u_char replay_time_m                          :8;
+   u_char replay_time_s                          :8;
+   u_char reserv1				 :8;
 #if BYTE_ORDER == BIG_ENDIAN
-	u_char last									:1;
-	u_char										:1;
-	u_char vo									:1;
-	u_char vm									:1;
-	u_char										:3;
-	u_char subtitles							:1;
+   u_char last                                   :1;
+   u_char                                        :1;
+   u_char vo                                     :1;
+   u_char vm                                     :1;
+   u_char                                        :3;
+   u_char subtitles                              :1;
 #else
-	u_char subtitles							:1;
-	u_char										:3;
-	u_char vm									:1;
-	u_char vo									:1;
-	u_char										:1;
-	u_char last									:1;
+   u_char subtitles                              :1;
+   u_char                                        :3;
+   u_char vm                                     :1;
+   u_char vo                                     :1;
+   u_char                                        :1;
+   u_char last                                   :1;
 #endif
 } epg_replay_t;
 
@@ -168,24 +170,24 @@ class freesatEITSubtableStatus
 {
 private:
 	u_char version;
-	uint16_t sectionMap[32];
-	void initMap(uint8_t maxSection);
+	__u16 sectionMap[32];
+	void initMap(__u8 maxSection);
 
 public:
-	freesatEITSubtableStatus(u_char version, uint8_t maxSection);
-	bool isSectionPresent(uint8_t sectionNo);
-	void seen(uint8_t sectionNo, uint8_t maxSegmentSection);
+	freesatEITSubtableStatus(u_char version, __u8 maxSection);
+	bool isSectionPresent(__u8 sectionNo);
+	void seen(__u8 sectionNo, __u8 maxSegmentSection);
 	bool isVersionChanged(u_char testVersion);
-	void updateVersion(u_char newVersion, uint8_t maxSection);
+	void updateVersion(u_char newVersion, __u8 maxSection);
 	bool isCompleted();
 };
 #endif
 
-class eEPGCache: public eMainloop, private eThread, public Object
+class eEPGCache: public eMainloop, private eThread, public sigc::trackable
 {
 #ifndef SWIG
 	DECLARE_REF(eEPGCache)
-	struct channel_data: public Object
+	struct channel_data: public sigc::trackable
 	{
 		pthread_mutex_t channel_active;
 		channel_data(eEPGCache*);
@@ -209,9 +211,9 @@ class eEPGCache: public eMainloop, private eThread, public Object
 #ifdef ENABLE_FREESAT
 		ePtr<eConnection> m_FreeSatScheduleOtherConn, m_FreeSatScheduleOtherConn2;
 		ePtr<iDVBSectionReader> m_FreeSatScheduleOtherReader, m_FreeSatScheduleOtherReader2;
-		std::map<uint32_t, freesatEITSubtableStatus> m_FreeSatSubTableStatus;
-		uint32_t m_FreesatTablesToComplete;
-		void readFreeSatScheduleOtherData(const uint8_t *data);
+		std::map<__u32, freesatEITSubtableStatus> m_FreeSatSubTableStatus;
+		__u32 m_FreesatTablesToComplete;
+		void readFreeSatScheduleOtherData(const __u8 *data);
 		void cleanupFreeSat();
 #endif
 #ifdef ENABLE_PRIVATE_EPG
@@ -221,41 +223,41 @@ class eEPGCache: public eMainloop, private eThread, public Object
 		uniqueEPGKey m_PrivateService;
 		ePtr<eConnection> m_PrivateConn;
 		ePtr<iDVBSectionReader> m_PrivateReader;
-		std::set<uint8_t> seenPrivateSections;
-		void readPrivateData(const uint8_t *data);
+		std::set<__u8> seenPrivateSections;
+		void readPrivateData(const __u8 *data);
 		void startPrivateReader();
 #endif
 #ifdef ENABLE_MHW_EPG
 		std::vector<mhw_channel_name_t> m_channels;
 		std::vector<mhw_channel_equiv_t> m_equiv;
-		std::map<uint8_t, mhw_theme_name_t> m_themes;
-		std::map<uint32_t, mhw_title_t> m_titles;
-		std::multimap<uint32_t, uint32_t> m_program_ids;
+		std::map<__u8, mhw_theme_name_t> m_themes;
+		std::map<__u32, mhw_title_t> m_titles;
+		std::multimap<__u32, __u32> m_program_ids;
 		ePtr<eConnection> m_MHWConn, m_MHWConn2;
 		ePtr<iDVBSectionReader> m_MHWReader, m_MHWReader2;
 		eDVBSectionFilterMask m_MHWFilterMask, m_MHWFilterMask2;
 		ePtr<eTimer> m_MHWTimeoutTimer;
-		uint16_t m_mhw2_channel_pid, m_mhw2_title_pid, m_mhw2_summary_pid;
+		__u16 m_mhw2_channel_pid, m_mhw2_title_pid, m_mhw2_summary_pid;
 		bool m_MHWTimeoutet;
 		void MHWTimeout() { m_MHWTimeoutet=true; }
-		void readMHWData(const uint8_t *data);
-		void readMHWData2(const uint8_t *data);
-		void readMHWData2_old(const uint8_t *data);
-		void startMHWReader(uint16_t pid, uint8_t tid);
-		void startMHWReader2(uint16_t pid, uint8_t tid, int ext=-1);
+		void readMHWData(const __u8 *data);
+		void readMHWData2(const __u8 *data);
+		void readMHWData2_old(const __u8 *data);
+		void startMHWReader(__u16 pid, __u8 tid);
+		void startMHWReader2(__u16 pid, __u8 tid, int ext=-1);
 		void startMHWTimeout(int msek);
 		bool checkMHWTimeout() { return m_MHWTimeoutet; }
 		void cleanupMHW();
-		uint8_t *delimitName( uint8_t *in, uint8_t *out, int len_in );
+		__u8 *delimitName( __u8 *in, __u8 *out, int len_in );
 		void timeMHW2DVB( u_char hours, u_char minutes, u_char *return_time);
 		void timeMHW2DVB( int minutes, u_char *return_time);
 		void timeMHW2DVB( u_char day, u_char hours, u_char minutes, u_char *return_time);
-		void storeMHWTitle(std::map<uint32_t, mhw_title_t>::iterator itTitle, std::string sumText, const uint8_t *data);
+		void storeMHWTitle(std::map<__u32, mhw_title_t>::iterator itTitle, std::string sumText, const __u8 *data);
 		void GetEquiv(void);
 		int nb_equiv;
 		bool log_open ();
 		void log_close();
-		void log_add (const char *message, ...);
+		void log_add (char *message, ...);
 #endif
 #ifdef ENABLE_ATSC
 		int m_atsc_eit_index;
@@ -278,7 +280,7 @@ class eEPGCache: public eMainloop, private eThread, public Object
 		void ATSC_ETTsection(const uint8_t *d);
 		void cleanupATSC();
 #endif
-		void readData(const uint8_t *data, int source);
+		void readData(const __u8 *data, int source);
 		void startChannel();
 		void startEPG();
 		void finishEPG();
@@ -353,9 +355,9 @@ private:
 	void thread();  // thread function
 
 #ifdef ENABLE_PRIVATE_EPG
-	void privateSectionRead(const uniqueEPGKey &, const uint8_t *);
+	void privateSectionRead(const uniqueEPGKey &, const __u8 *);
 #endif
-	void sectionRead(const uint8_t *data, int source, channel_data *channel);
+	void sectionRead(const __u8 *data, int source, channel_data *channel);
 	void gotMessage(const Message &message);
 	void cleanLoop();
 	void submitEventData(const std::vector<int>& sids, const std::vector<eDVBChannelID>& chids, long start, long duration, const char* title, const char* short_summary, const char* long_description, char event_type, int source);
@@ -374,7 +376,6 @@ private:
 public:
 	static eEPGCache *getInstance() { return instance; }
 
-	void crossepgImportEPGv21(std::string dbroot);
 	void save();
 	void load();
 	void timeUpdated();

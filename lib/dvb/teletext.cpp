@@ -66,7 +66,7 @@ const char * const eDVBTeletextParser::my_country_codes[] =
 
 unsigned char country_lookup[] =
 {
-	255, 1, 4, 11, 11, 11, 5, 3,
+	255, 1, 4, 11, 11, 11, 5, 4,
 	8, 8, 0, 0, 7, 12, 10, 10,
 	10, 9, 2, 6, 6, 11, 11, 17,
 	18, 255, 255, 255, 255, 255, 255, 255
@@ -226,7 +226,7 @@ eDVBTeletextParser::eDVBTeletextParser(iDVBDemux *demux) : m_pid(-1)
 	if (demux->createPESReader(eApp, m_pes_reader))
 		eDebug("failed to create teletext subtitle PES reader!");
 	else
-		m_pes_reader->connectRead(slot(*this, &eDVBTeletextParser::processData), m_read_connection);
+		m_pes_reader->connectRead(sigc::mem_fun(*this, &eDVBTeletextParser::processData), m_read_connection);
 }
 
 eDVBTeletextParser::~eDVBTeletextParser()
@@ -246,7 +246,7 @@ char *get_bits(int val, int count)
 	return buf;
 }
 
-void eDVBTeletextParser::processPESPacket(uint8_t *pkt, int len)
+void eDVBTeletextParser::processPESPacket(__u8 *pkt, int len)
 {
 	unsigned char *p = pkt;
 
@@ -264,21 +264,19 @@ void eDVBTeletextParser::processPESPacket(uint8_t *pkt, int len)
 
 	while (len > 2)
 	{
-		unsigned char data_unit_id = *p++; // data_unit_id
+		p++; /* data_unit_id */
 		unsigned char data_unit_length = *p++;
 		len -= 2;
 
-		if(data_unit_id == 0xFF) //data_unit for stuffing
-			break;
-
 		if (len < data_unit_length)
 		{
-			eDebug("data_unit_length > len");
 			break;
 		}
 
 		if (data_unit_length != 44)
+		{
 			break;
+		}
 
 		p++; len--; /* line_offset */
 		unsigned char framing_code = *p++; len--;
@@ -366,7 +364,7 @@ void eDVBTeletextParser::processPESPacket(uint8_t *pkt, int len)
 							continue;
 						}
 						else
-							eDebug("ignore unimplemented: ");
+							eDebugNoNewLine("ignore unimplemented: ");
 					}
 					else //0..39 means column 0..39
 					{
@@ -404,17 +402,17 @@ void eDVBTeletextParser::processPESPacket(uint8_t *pkt, int len)
 									continue;
 								}
 								else
-									eDebug("ignore G2 char < 0x20: ");
+									eDebugNoNewLine("ignore G2 char < 0x20: ");
 							}
 							else
-								eDebug("ignore unimplemented: ");
+								eDebugNoNewLine("ignore unimplemented: ");
 						}
 						else
-							eDebug("row is not selected.. ignore: ");
+							eDebugNoNewLine("row is not selected.. ignore: ");
 					}
-					eDebug("triplet = %08x(%s) ", val, get_bits(val, 18));
-					eDebug("address = %02x(%s) ", addr, get_bits(addr, 6));
-					eDebug("mode = %02x(%s) ", mode, get_bits(mode, 5));
+					eDebugNoNewLine("triplet = %08x(%s) ", val, get_bits(val, 18));
+					eDebugNoNewLine("address = %02x(%s) ", addr, get_bits(addr, 6));
+					eDebugNoNewLine("mode = %02x(%s) ", mode, get_bits(mode, 5));
 					eDebug("data = %02x(%s)", data, get_bits(data, 7));
 				}
 			}
@@ -516,7 +514,6 @@ void eDVBTeletextParser::handleLine(unsigned char *data, int len)
 		nat_subset = NationalOptionSubsetsLookup[(m_M29_t1 >> 7) & 0x7F];
 		nat_subset_2 = NationalOptionSubsetsLookup[((m_M29_t1 >> 14) & 0xF) | ((m_M29_t2 & 7) << 4)];
 	}
-
 	for (int i=0; i<len; ++i)
 	{
 		unsigned char b = decode_odd_parity(data + i);
@@ -648,12 +645,12 @@ void eDVBTeletextParser::setPageAndMagazine(int page, int magazine, const char *
 		m_page_X &= 0xFF;
 }
 
-void eDVBTeletextParser::connectNewStream(const Slot0<void> &slot, ePtr<eConnection> &connection)
+void eDVBTeletextParser::connectNewStream(const sigc::slot0<void> &slot, ePtr<eConnection> &connection)
 {
 	connection = new eConnection(this, m_new_subtitle_stream.connect(slot));
 }
 
-void eDVBTeletextParser::connectNewPage(const Slot1<void, const eDVBTeletextSubtitlePage&> &slot, ePtr<eConnection> &connection)
+void eDVBTeletextParser::connectNewPage(const sigc::slot1<void, const eDVBTeletextSubtitlePage&> &slot, ePtr<eConnection> &connection)
 {
 	connection = new eConnection(this, m_new_subtitle_page.connect(slot));
 }

@@ -1,4 +1,4 @@
-#include <lib/base/filepush.h>
+#include "filepush.h"
 #include <lib/base/eerror.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -15,9 +15,7 @@
 #endif
 //#define SHOW_WRITE_TIME
 
-eFilePushThread::eFilePushThread(int io_prio_class, int io_prio_level, int blocksize, size_t buffersize)
-	:prio_class(io_prio_class),
-	 prio(io_prio_level),
+eFilePushThread::eFilePushThread(int blocksize, size_t buffersize):
 	 m_sg(NULL),
 	 m_stop(1),
 	 m_send_pvr_commit(0),
@@ -56,7 +54,7 @@ void eFilePushThread::thread()
 {
 	ignore_but_report_signals();
 	hasStarted(); /* "start()" blocks until we get here */
-	setIoPrio(prio_class, prio);
+	setIoPrio(IOPRIO_CLASS_BE, 0);
 	eDebug("FILEPUSH THREAD START");
 
 	do
@@ -91,14 +89,14 @@ void eFilePushThread::thread()
 				int rc = ioctl(fd_video, VIDEO_DISCONTINUITY, (void*)param);
 			}
 #endif
-			m_sg->getNextSourceSpan(m_current_position, bytes_read, current_span_offset, current_span_remaining);
+			m_sg->getNextSourceSpan(m_current_position, bytes_read, current_span_offset, current_span_remaining, m_blocksize);
 			ASSERT(!(current_span_remaining % m_blocksize));
 			m_current_position = current_span_offset;
 			bytes_read = 0;
 		}
-
+		
 		size_t maxread = m_buffersize;
-
+		
 			/* if we have a source span, don't read past the end */
 		if (m_sg && maxread > current_span_remaining)
 			maxread = current_span_remaining;
@@ -185,9 +183,9 @@ void eFilePushThread::thread()
 			if (m_stop)
 				break;
 
-				/* in stream_mode, we are sending EOF events
+				/* in stream_mode, we are sending EOF events 
 				   over and over until somebody responds.
-
+				   
 				   in stream_mode, think of evtEOF as "buffer underrun occurred". */
 			sendEvent(evtEOF);
 
@@ -224,9 +222,6 @@ void eFilePushThread::thread()
 					}
 					if (w < 0 && (errno == EINTR || errno == EAGAIN || errno == EBUSY))
 					{
-#if HAVE_CPULOADFIX
-						sleep(2);
-#endif
 						continue;
 					}
 					eDebug("eFilePushThread WRITE ERROR");
@@ -262,7 +257,7 @@ void eFilePushThread::thread()
 		if (m_stop == 0)
 			m_run_state = 1;
 	}
-
+	
 	} while (m_stop == 0);
 	eDebug("FILEPUSH THREAD STOP");
 }
@@ -373,7 +368,6 @@ void eFilePushThreadRecorder::thread()
 
 	/* we set the signal to not restart syscalls, so we can detect our signal. */
 	struct sigaction act;
-	memset(&act, 0, sizeof(act));
 	act.sa_handler = signal_handler; // no, SIG_IGN doesn't do it. we want to receive the -EINTR
 	act.sa_flags = 0;
 	sigaction(SIGUSR1, &act, 0);
@@ -387,6 +381,10 @@ void eFilePushThreadRecorder::thread()
 		if (bytes < 0)
 		{
 			bytes = 0;
+			/* Check m_stop after interrupted syscall. */
+			if (m_stop) {
+				break;
+			}
 			if (errno == EINTR || errno == EBUSY || errno == EAGAIN)
 				continue;
 			if (errno == EOVERFLOW)

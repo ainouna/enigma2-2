@@ -7,7 +7,7 @@
 #define TABLE_eDebug(x...) do { if (m_debug) eDebug(x); } while(0)
 #define TABLE_eDebugNoNewLine(x...) do { if (m_debug) eDebugNoNewLine(x); } while(0)
 
-class eGTable: public iObject, public Object
+class eGTable: public iObject, public sigc::trackable
 {
 	DECLARE_REF(eGTable);
 	ePtr<iDVBSectionReader> m_reader;
@@ -17,15 +17,15 @@ class eGTable: public iObject, public Object
 
 	ePtr<eTimer> m_timeout;
 
-	void sectionRead(const uint8_t *data);
+	void sectionRead(const __u8 *data);
 	void timeout();
 	ePtr<eConnection> m_sectionRead_conn;
 protected:
 	static const bool m_debug = false;
-	virtual int createTable(unsigned int nr, const uint8_t *data, unsigned int max)=0;
+	virtual int createTable(unsigned int nr, const __u8 *data, unsigned int max)=0;
 	virtual unsigned int totalSections(unsigned int max) { return max + 1; }
 public:
-	Signal1<void, int> tableReady;
+	sigc::signal1<void, int> tableReady;
 	eGTable();
 	RESULT start(iDVBSectionReader *reader, const eDVBTableSpec &table);
 	RESULT start(iDVBDemux *reader, const eDVBTableSpec &table);
@@ -43,7 +43,7 @@ private:
 	std::set<int> avail;
 	unsigned char m_section_data[4096];
 protected:
-	int createTable(unsigned int nr, const uint8_t *data, unsigned int max)
+	int createTable(unsigned int nr, const __u8 *data, unsigned int max)
 	{
 		unsigned int ssize = sections.size();
 		if (max < ssize || nr >= max)
@@ -87,12 +87,12 @@ public:
 	}
 };
 
-class eAUGTable: public Object
+class eAUGTable: public sigc::trackable
 {
 protected:
 	void slotTableReady(int);
 public:
-	Signal1<void, int> tableReady;
+	sigc::signal1<void, int> tableReady;
 	virtual void getNext(int err)=0;
 };
 

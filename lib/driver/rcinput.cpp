@@ -24,8 +24,25 @@ void eRCDeviceInputDev::handleCode(long rccode)
 	eDebug("==> BEFORE check for evtype: %x %x %x", ev->value, ev->code, ev->type);
 	eDebug("==> BEFORE check for evtype:-->BackspaceFLAG %d", bflag);
 */
-	if (ev->code == KEY_BACKSPACE && ev->value == 1 ) {
+	if (ev->code == KEY_POWER && ev->value == 1 ) {
+		bflag = 0;
+	}
+
+	FILE* f;
+	int state = 255;
+	// read powerled
+	if ((f = fopen("/sys/class/leds/wetek:blue:powerled/brightness", "r")) != NULL) {
+		fscanf(f,"%d",&state);
+		fclose(f);
+	} 
+	// signalize colors buttons mode in original rcu with eth led (mode heartbeat). Only in wakeup state 
+	if (ev->code == KEY_BACKSPACE && ev->value == 1 && state > 0) {
 		bflag = !bflag;
+		if ((f = fopen("/sys/class/leds/wetek:blue:ethled/trigger", "w")) != NULL) { 
+			if (bflag) fprintf(f, "heartbeat");
+			else fprintf(f, "ethlink");
+			fclose(f);
+		}
 	}
 /*
 	eDebug("==> BEFORE check for evtype after check for evvalue:-->BackspaceFLAG %d", bflag);
@@ -34,10 +51,54 @@ void eRCDeviceInputDev::handleCode(long rccode)
 
 	if (ev->type != EV_KEY)
 		return;
-		
+
 	eDebug("%x %x %x", ev->value, ev->code, ev->type);
 
 	int km = iskeyboard ? input->getKeyboardMode() : eRCInput::kmNone;
+
+#if WETEKRC
+/*
+	eDebug("-->BackspaceFLAG %d", bflag);
+	eDebug("-->before change %x %x %x", ev->value, ev->code, ev->type);
+*/
+/* default is with NO numerc keys !!!*/
+	if (bflag) {
+		if (ev->code == KEY_1) {
+			ev->code = KEY_RED;
+		}
+		if (ev->code == KEY_2) {
+			ev->code = KEY_GREEN;
+		}
+		if (ev->code == KEY_3) {
+			ev->code = KEY_YELLOW;
+		}
+		if (ev->code == KEY_4) {
+			ev->code = KEY_BLUE;
+		}
+		if (ev->code == KEY_5) {
+			ev->code = KEY_PREVIOUS;
+		}
+		if (ev->code == KEY_6) {
+			ev->code = KEY_NEXT;
+		}
+		if (ev->code == KEY_7) {
+			ev->code = KEY_REWIND;
+		}
+		if (ev->code == KEY_8) {
+			ev->code = KEY_STOP;
+		}
+		if (ev->code == KEY_9) {
+			ev->code = KEY_FASTFORWARD;
+		}
+		if (ev->code == KEY_0) {
+			ev->code = KEY_PLAYPAUSE;
+		}
+	}
+/*
+	eDebug("-->BackspaceFLAG %d", bflag);
+	eDebug("-->after change %x %x %x", ev->value, ev->code, ev->type);
+*/
+#endif
 
 	switch (ev->code)
 	{
@@ -102,116 +163,12 @@ void eRCDeviceInputDev::handleCode(long rccode)
 					ke.kb_index = ev->code;
 					::ioctl(consoleFd, KDGKBENT, &ke);
 					if (ke.kb_value)
-						input->keyPressed(eRCKey(this, ke.kb_value & 0xff, eRCKey::flagAscii)); /* emit */
+						input->keyPressed(eRCKey(this, ke.kb_value & 0xff, eRCKey::flagAscii)); /* emit */ 
 				}
 			}
 			return;
 		}
 	}
-
-#if TIVIARRC
-	if (ev->code == KEY_EPG) {
-		ev->code = KEY_INFO;
-	}
-	else if (ev->code == KEY_MEDIA) {
-		ev->code = KEY_EPG;
-	}
-	else if (ev->code == KEY_INFO) {
-		ev->code = KEY_BACK;
-	}
-	else if (ev->code == KEY_PREVIOUS) {
-		ev->code = KEY_SUBTITLE;
-	}
-	else if (ev->code == KEY_NEXT) {
-		ev->code = KEY_TEXT;
-	}
-	else if (ev->code == KEY_BACK) {
-		ev->code = KEY_MEDIA;
-	}
-	else if (ev->code == KEY_PLAYPAUSE) {
-		ev->code = KEY_PLAY;
-	}
-	else if (ev->code == KEY_RECORD) {
-		ev->code = KEY_PREVIOUS;
-	}
-	else if (ev->code == KEY_STOP) {
-		ev->code = KEY_PAUSE;
-	}
-	else if (ev->code == KEY_PROGRAM) {
-		ev->code = KEY_STOP;
-	}
-	else if (ev->code == KEY_BOOKMARKS) {
-		ev->code = KEY_RECORD;
-	}
-	else if (ev->code == KEY_SLEEP) {
-		ev->code = KEY_NEXT;
-	}
-	else if (ev->code == KEY_TEXT) {
-		ev->code = KEY_PAGEUP;
-	}
-	else if (ev->code == KEY_SUBTITLE) {
-		ev->code = KEY_PAGEDOWN;
-	}
-	else if (ev->code == KEY_LIST) {
-		ev->code = KEY_F3;
-	}
-	else if (ev->code ==  KEY_RADIO) {
-		ev->code =  KEY_MODE;
-	}
-	else if (ev->code == KEY_AUDIO) {
-		ev->code = KEY_TV;
-	}
-	else if (ev->code == KEY_HELP) {
-		ev->code = KEY_SLEEP;
-	}
-	else if (ev->code == KEY_TV) {
-		ev->code = KEY_VMODE;
-	}
-#endif
-
-#if WETEKRC
-/*
-	eDebug("-->BackspaceFLAG %d", bflag);
-	eDebug("-->before change %x %x %x", ev->value, ev->code, ev->type);
-*/
-/* default is with NO numerc keys !!!*/
-	if (bflag) {
-		if (ev->code == KEY_1) {
-			ev->code = KEY_RED;
-		}
-		if (ev->code == KEY_2) {
-			ev->code = KEY_GREEN;
-		}
-		if (ev->code == KEY_3) {
-			ev->code = KEY_YELLOW;
-		}
-		if (ev->code == KEY_4) {
-			ev->code = KEY_BLUE;
-		}
-		if (ev->code == KEY_5) {
-			ev->code = KEY_PREVIOUS;
-		}
-		if (ev->code == KEY_6) {
-			ev->code = KEY_NEXT;
-		}
-		if (ev->code == KEY_7) {
-			ev->code = KEY_REWIND;
-		}
-		if (ev->code == KEY_8) {
-			ev->code = KEY_STOP;
-		}
-		if (ev->code == KEY_9) {
-			ev->code = KEY_FASTFORWARD;
-		}
-		if (ev->code == KEY_0) {
-			ev->code = KEY_PLAYPAUSE;
-		}
-	}
-/*
-	eDebug("-->BackspaceFLAG %d", bflag);
-	eDebug("-->after change %x %x %x", ev->value, ev->code, ev->type);
-*/
-#endif
 
 #if KEY_F7_TO_KEY_MENU
 	if (ev->code == KEY_F7) {
@@ -344,7 +301,7 @@ void eRCDeviceInputDev::handleCode(long rccode)
 		ev->code = KEY_SLOW;
 	}
 #endif
-	
+
 #if KEY_TEXT_TO_KEY_AUDIO
 	if (ev->code == KEY_AUDIO)
 	{
@@ -363,20 +320,6 @@ void eRCDeviceInputDev::handleCode(long rccode)
 	{
 		/* Gigablue New Remote rc has a KEY_PIP key, which sends KEY_F2 events. Correct this, so we do not have to place hacks in the keymaps. */
 		ev->code = KEY_F6;
-	}
-#endif
-
-#if KEY_F1_TO_KEY_F6
-	if (ev->code == KEY_F1)
-	{
-		ev->code = KEY_F6;
-	}
-#endif
-
-#if KEY_F2_TO_KEY_AUX
-	if (ev->code == KEY_F2)
-	{
-		ev->code = KEY_AUX;
 	}
 #endif
 
@@ -552,7 +495,7 @@ void eRCDeviceInputDev::handleCode(long rccode)
 #if KEY_PLAY_ACTUALLY_IS_KEY_PLAYPAUSE
 	if (ev->code == KEY_PLAY)
 	{
-		if ((id == "dreambox advanced remote control (native)")  || (id == "bcm7325 remote control"))
+		if (id == "dreambox advanced remote control (native)")
 		{
 			/* 8k rc has a KEY_PLAYPAUSE key, which sends KEY_PLAY events. Correct this, so we do not have to place hacks in the keymaps. */
 			ev->code = KEY_PLAYPAUSE;
@@ -619,13 +562,13 @@ void eRCDeviceInputDev::handleCode(long rccode)
 	switch (ev->value)
 	{
 		case 0:
-			input->keyPressed(eRCKey(this, ev->code, eRCKey::flagBreak)); /*emit*/
+			input->keyPressed(eRCKey(this, ev->code, eRCKey::flagBreak)); /*emit*/ 
 			break;
 		case 1:
-			input->keyPressed(eRCKey(this, ev->code, 0)); /*emit*/
+			input->keyPressed(eRCKey(this, ev->code, 0)); /*emit*/ 
 			break;
 		case 2:
-			input->keyPressed(eRCKey(this, ev->code, eRCKey::flagRepeat)); /*emit*/
+			input->keyPressed(eRCKey(this, ev->code, eRCKey::flagRepeat)); /*emit*/ 
 			break;
 	}
 }
@@ -675,28 +618,14 @@ class eInputDeviceInit
 	};
 	typedef std::vector<element*> itemlist;
 	std::vector<element*> items;
-	int consoleFd;
+	int consoleFd = -1;
 
 public:
 	eInputDeviceInit()
 	{
-#if WORKAROUND_KODI_INPUT
 		addAll();
-#else
-		int i = 0;
-		consoleFd = ::open("/dev/tty0", O_RDWR);
-		while (1)
-		{
-			char filename[32];
-			sprintf(filename, "/dev/input/event%d", i);
-			if (::access(filename, R_OK) < 0) break;
-			add(filename);
-			++i;
-		}
-		eDebug("Found %d input devices.", i);
-#endif
 	}
-
+	
 	~eInputDeviceInit()
 	{
 		for (itemlist::iterator it = items.begin(); it != items.end(); ++it)
@@ -754,6 +683,7 @@ public:
 		}
 		items.clear();
 	}
+
 };
 
 eAutoInitP0<eInputDeviceInit> init_rcinputdev(eAutoInitNumbers::rc+1, "input device driver");

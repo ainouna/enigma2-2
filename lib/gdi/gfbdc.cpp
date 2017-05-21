@@ -189,7 +189,6 @@ void gFBDC::exec(const gOpcode *o)
 		break;
 	}
 #endif
-
 	default:
 		gDC::exec(o);
 		break;
@@ -227,8 +226,13 @@ void gFBDC::setResolution(int xres, int yres, int bpp)
 	 * we need that to read the new screen dimesnions after a resolution change
 	 * without changing the frambuffer dimensions
 	 */
+	int m_xres;
+	int m_yres;
+	int m_bpp;
+	fb->getMode(m_xres, m_yres, m_bpp);
+
 	if (xres<0 && yres<0 ) {
-		fb->SetMode(surface.x, surface.y, bpp);
+		fb->SetMode(m_xres, m_yres, bpp);
 		return;
 	}
 #else
@@ -252,9 +256,11 @@ void gFBDC::setResolution(int xres, int yres, int bpp)
 	surface.bypp = bpp / 8;
 	surface.stride = fb->Stride();
 	surface.data = fb->lfb;
-	
+
+#if defined(__sh__)
 	for (int y=0; y<yres; y++)    // make whole screen transparent 
 		memset(fb->lfb+ y * xres * 4, 0x00, xres * 4);	
+#endif
 
 	surface.data_phys = fb->getPhysAddr();
 

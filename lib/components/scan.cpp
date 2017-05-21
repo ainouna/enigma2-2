@@ -9,7 +9,7 @@ DEFINE_REF(eComponentScan);
 void eComponentScan::scanEvent(int evt)
 {
 //	eDebug("scan event %d!", evt);
-
+	
 	switch(evt)
 	{
 		case eDVBScan::evtFinish:
@@ -17,7 +17,7 @@ void eComponentScan::scanEvent(int evt)
 			m_done = 1;
 			ePtr<iDVBChannelList> db;
 			ePtr<eDVBResourceManager> res;
-
+			
 			int err;
 			if ((err = eDVBResourceManager::getInstance(res)) != 0)
 			{
@@ -47,8 +47,6 @@ void eComponentScan::scanEvent(int evt)
 			break;
 	}
 	statusChanged();
-	if (m_failed > 0)
-		m_done = 1;
 }
 
 eComponentScan::eComponentScan(): m_done(-1), m_failed(0)
@@ -99,10 +97,10 @@ int eComponentScan::start(int feid, int flags, int networkid)
 
 	if (m_done != -1)
 		return -1;
-
+	
 	m_done = 0;
 	ePtr<eDVBResourceManager> mgr;
-
+	
 	eDVBResourceManager::getInstance(mgr);
 
 	eUsePtr<iDVBChannel> channel;
@@ -115,7 +113,7 @@ int eComponentScan::start(int feid, int flags, int networkid)
 
 	std::list<ePtr<iDVBFrontendParameters> > list;
 	m_scan = new eDVBScan(channel);
-	m_scan->connectEvent(slot(*this, &eComponentScan::scanEvent), m_scan_event_connection);
+	m_scan->connectEvent(sigc::mem_fun(*this, &eComponentScan::scanEvent), m_scan_event_connection);
 
 	if (!(flags & scanRemoveServices))
 	{
