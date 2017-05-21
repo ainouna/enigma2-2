@@ -32,10 +32,10 @@ private:
 	off_t m_current_offset;
 	off_t m_length;
 	off_t lseek_internal(off_t offset, int whence);
-	#ifdef HAVE_LIBUDFREAD
+#ifdef HAVE_LIBUDFREAD
 	udfread *m_udf;
 	UDFFILE *m_udf_file;
-	#endif
+#endif
 };
 
 class eStaticServiceM2TSInformation: public iStaticServiceInformation
@@ -80,9 +80,9 @@ RESULT eStaticServiceM2TSInformation::getName(const eServiceReference &ref, std:
 int eStaticServiceM2TSInformation::getLength(const eServiceReference &ref)
 {
 	ASSERT(ref == m_ref);
-
+	
 	eDVBTSTools tstools;
-
+	
 	struct stat s;
 	stat(ref.path.c_str(), &s);
 
@@ -353,7 +353,7 @@ eServiceFactoryM2TS::eServiceFactoryM2TS()
 eServiceFactoryM2TS::~eServiceFactoryM2TS()
 {
 	ePtr<eServiceCenter> sc;
-
+	
 	eServiceCenter::getPrivInstance(sc);
 	if (sc)
 		sc->removeServiceFactory(eServiceFactoryM2TS::id);
