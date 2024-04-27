@@ -417,6 +417,27 @@ class ConfigSelection(ConfigElement):
 # several customized versions exist for different
 # descriptions.
 #
+class ConfigAction(ConfigElement):
+	def __init__(self, action, *args):
+		ConfigElement.__init__(self)
+		self.value = "(OK)"
+		self.action = action
+		self.actionargs = args
+#
+# 	def handleKey(self, key):
+# 		if (key == ACTIONKEY_SELECT):
+# 			self.action(*self.actionargs)
+#
+# 	def getMulti(self, selected):
+# 		return ("text", _("<Press OK to perform action>") if selected else "")
+
+
+# This is the control, and base class, for binary decision settings.
+#
+# Several customized versions exist for different descriptions.
+#
+
+
 class ConfigBoolean(ConfigElement):
 	def __init__(self, default = False, descriptions = {False: _("false"), True: _("true")}):
 		ConfigElement.__init__(self)
