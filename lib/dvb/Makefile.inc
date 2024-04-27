@@ -13,6 +13,7 @@ dvb_libenigma_dvb_a_SOURCES = \
 	dvb/epgcache.cpp \
 	dvb/esection.cpp \
 	dvb/fastscan.cpp \
+	dvb/filepush.cpp \
 	dvb/frontend.cpp \
 	dvb/frontendparms.cpp \
 	dvb/metaparser.cpp \
@@ -39,6 +40,7 @@ endif
 
 dvbincludedir = $(pkgincludedir)/lib/dvb
 dvbinclude_HEADERS = \
+	dvb/absdiff.h \
 	dvb/cablescan.h \
 	dvb/cahandler.h \
 	dvb/crc32.h \
@@ -51,6 +53,7 @@ dvbinclude_HEADERS = \
 	dvb/epgcache.h \
 	dvb/esection.h \
 	dvb/fastscan.h \
+	dvb/filepush.h \
 	dvb/frontend.h \
 	dvb/frontendparms.h \
 	dvb/idemux.h \
@@ -78,4 +81,4 @@ dvbinclude_HEADERS = \
 
 if HAVE_AMLOGIC
 dvbinclude_HEADERS += dvb/amldecoder.h
-endif
+endif 

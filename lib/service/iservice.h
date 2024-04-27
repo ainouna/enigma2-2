@@ -44,7 +44,7 @@ public:
 		isMarker=64,			// Marker
 		isGroup=128,			// is a group of services
 		isNumberedMarker=256, //use together with isMarker, to force the marker to be numbered
-		isInvisible=512 // use together with isMarker and isNumberedMarker, to force an empty number
+		isInvisible=512 // use to make services or markers in a list invisable
 	};
 	int flags; // flags will NOT be compared.
 
@@ -244,10 +244,10 @@ class iDVBTransponderData;
 class iServiceInfoContainer: public iObject
 {
 public:
-	virtual int getInteger(unsigned int index) const { return 0; }
-	virtual std::string getString(unsigned int index) const { return ""; }
-	virtual double getDouble(unsigned int index) const { return 0.0; }
-	virtual unsigned char *getBuffer(unsigned int &size) const { return NULL; }
+	virtual int getInteger(unsigned int index) const { (void)index; return 0; }
+	virtual std::string getString(unsigned int index) const { (void)index; return ""; }
+	virtual double getDouble(unsigned int index) const { (void)index; return 0.0; }
+	virtual unsigned char *getBuffer(unsigned int &size) const { size = 0; return NULL; }
 };
 
 class iStaticServiceInformation: public iObject
@@ -389,6 +389,7 @@ public:
 		sLiveStreamDemuxId,
 		sBuffer,
 		sIsDedicated3D,
+		sHideVBI,
 
 		sUser = 0x100
 	};
@@ -943,7 +944,7 @@ class iPlayableService: public iPlayableService_ENUMS, public iObject
 	friend class iServiceHandler;
 public:
 #ifndef SWIG
-	virtual RESULT connectEvent(const Slot2<void,iPlayableService*,int> &event, ePtr<eConnection> &connection)=0;
+	virtual RESULT connectEvent(const sigc::slot2<void,iPlayableService*,int> &event, ePtr<eConnection> &connection)=0;
 #endif
 	virtual RESULT start()=0;
 	virtual RESULT stop()=0;
@@ -1009,7 +1010,7 @@ class iRecordableService: public iRecordableService_ENUMS, public iObject
 #endif
 public:
 #ifndef SWIG
-	virtual RESULT connectEvent(const Slot2<void,iRecordableService*,int> &event, ePtr<eConnection> &connection)=0;
+	virtual RESULT connectEvent(const sigc::slot2<void,iRecordableService*,int> &event, ePtr<eConnection> &connection)=0;
 #endif
 	virtual SWIG_VOID(RESULT) getError(int &SWIG_OUTPUT)=0;
 	virtual RESULT prepare(const char *filename, time_t begTime=-1, time_t endTime=-1, int eit_event_id=-1, const char *name=0, const char *descr=0, const char *tags=0, bool descramble = true, bool recordecm = false)=0;

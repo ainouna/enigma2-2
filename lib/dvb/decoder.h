@@ -26,7 +26,7 @@ public:
 	virtual ~eDVBAudio();
 };
 
-class eDVBVideo: public iObject, public Object
+class eDVBVideo: public iObject, public sigc::trackable
 {
 	DECLARE_REF(eDVBVideo);
 private:
@@ -36,7 +36,7 @@ private:
 	int m_is_slow_motion, m_is_fast_forward, m_is_freezed;
 	ePtr<eSocketNotifier> m_sn;
 	void video_event(int what);
-	Signal1<void, struct iTSMPEGDecoder::videoEvent> m_event;
+	sigc::signal1<void, struct iTSMPEGDecoder::videoEvent> m_event;
 	int m_width, m_height, m_framerate, m_aspect, m_progressive;
 	static int readApiSize(int fd, int &xres, int &yres, int &aspect);
 public:
@@ -51,7 +51,7 @@ public:
 	void unfreeze();
 	int getPTS(pts_t &now);
 	virtual ~eDVBVideo();
-	RESULT connectEvent(const Slot1<void, struct iTSMPEGDecoder::videoEvent> &event, ePtr<eConnection> &conn);
+	RESULT connectEvent(const sigc::slot1<void, struct iTSMPEGDecoder::videoEvent> &event, ePtr<eConnection> &conn);
 	int getWidth();
 	int getHeight();
 	int getProgressive();
@@ -85,7 +85,7 @@ public:
 	virtual ~eDVBTText();
 };
 
-class eTSMPEGDecoder: public Object, public iTSMPEGDecoder
+class eTSMPEGDecoder: public sigc::trackable, public iTSMPEGDecoder
 {
 	DECLARE_REF(eTSMPEGDecoder);
 private:
@@ -101,8 +101,8 @@ private:
 	int m_vpid, m_vtype, m_apid, m_atype, m_pcrpid, m_textpid;
 	enum
 	{
-		changeVideo = 1,
-		changeAudio = 2,
+		changeVideo = 1, 
+		changeAudio = 2, 
 		changePCR   = 4,
 		changeText  = 8,
 		changeState = 16,
@@ -114,10 +114,10 @@ private:
 	int setState();
 	ePtr<eConnection> m_demux_event_conn;
 	ePtr<eConnection> m_video_event_conn;
-
+	
 	void demux_event(int event);
 	void video_event(struct videoEvent);
-	Signal1<void, struct videoEvent> m_video_event;
+	sigc::signal1<void, struct videoEvent> m_video_event;
 	int m_video_clip_fd;
 	ePtr<eTimer> m_showSinglePicTimer;
 	void finishShowSinglePic(); // called by timer
@@ -136,10 +136,10 @@ public:
 	RESULT setSyncPCR(int pcrpid);
 	RESULT setTextPID(int textpid);
 	RESULT setSyncMaster(int who);
-
+	
 		/*
 		The following states exist:
-
+		
 		 - stop: data source closed, no playback
 		 - pause: data source active, decoder paused
 		 - play: data source active, decoder consuming
@@ -167,7 +167,7 @@ public:
 	RESULT setRadioPic(const std::string &filename);
 		/* what 0=auto, 1=video, 2=audio. */
 	RESULT getPTS(int what, pts_t &pts);
-	RESULT connectVideoEvent(const Slot1<void, struct videoEvent> &event, ePtr<eConnection> &connection);
+	RESULT connectVideoEvent(const sigc::slot1<void, struct videoEvent> &event, ePtr<eConnection> &connection);
 	int getVideoWidth();
 	int getVideoHeight();
 	int getVideoProgressive();

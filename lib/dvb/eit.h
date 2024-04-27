@@ -7,7 +7,7 @@
 #include <dvbsi++/event_information_section.h>
 #include <lib/service/event.h>
 
-class eDVBServiceEITHandler: public Object
+class eDVBServiceEITHandler: public sigc::trackable
 {
 	int sourceId;
 	int ETTpid;
@@ -15,12 +15,10 @@ class eDVBServiceEITHandler: public Object
 	eAUTable<eTable<EventInformationSection> > *m_EIT;
 	eAUTable<eTable<MasterGuideTableSection> > *m_ATSC_MGT;
 	eAUTable<eTable<ATSCEventInformationSection> > *m_ATSC_EIT;
-	ePtr<iDVBSectionReader> m_now_ETT, m_next_ETT;
-	ePtr<eConnection> m_now_conn, m_next_conn;
+	eAUTable<eTable<ExtendedTextTableSection> > *m_ATSC_ETT;
 	void MGTready(int error);
 	void EITready(int error);
-	void nowETTsection(const uint8_t *d);
-	void nextETTsection(const uint8_t *d);
+	void ETTready(int error);
 
 	RESULT parseEvent(ePtr<eServiceEvent> &serviceevent, const Event &dvbevent);
 

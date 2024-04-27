@@ -22,10 +22,10 @@ class eDVBCIInterfaces;
 
 struct queueData
 {
-	uint8_t prio;
+	__u8 prio;
 	unsigned char *data;
 	unsigned int len;
-	queueData( unsigned char *data, unsigned int len, uint8_t prio = 0 )
+	queueData( unsigned char *data, unsigned int len, __u8 prio = 0 )
 		:prio(prio), data(data), len(len)
 	{
 
@@ -38,8 +38,8 @@ struct queueData
 
 enum data_source
 {
-#ifdef TUNER_FBC
-	TUNER_A=0, TUNER_B, TUNER_C, TUNER_D, TUNER_E, TUNER_F, TUNER_G, TUNER_H, TUNER_I, TUNER_J, TUNER_K, TUNER_L, TUNER_M, TUNER_N, TUNER_O, TUNER_P, TUNER_Q, TUNER_R, CI_A, CI_B, CI_C, CI_D
+#ifdef TUNER_VUSOLO4K
+	TUNER_A=0, TUNER_B, TUNER_C, TUNER_D, TUNER_E, TUNER_F, TUNER_G, TUNER_H, TUNER_I, TUNER_J, CI_A, CI_B, CI_C, CI_D
 #else
 	TUNER_A, TUNER_B, TUNER_C, TUNER_D, TUNER_E, TUNER_F, CI_A, CI_B, CI_C, CI_D
 #endif
@@ -86,7 +86,7 @@ static inline int time_after(struct timespec oldtime, uint32_t delta_ms)
 }
 #endif
 
-class eDVBCISlot: public iObject, public Object
+class eDVBCISlot: public iObject, public sigc::trackable
 {
 	friend class eDVBCIInterfaces;
 	DECLARE_REF(eDVBCISlot);

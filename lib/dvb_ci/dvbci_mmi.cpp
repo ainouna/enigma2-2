@@ -36,10 +36,10 @@ eDVBCIMMISession::~eDVBCIMMISession()
 
 int eDVBCIMMISession::receivedAPDU(const unsigned char *tag, const void *data, int len)
 {
-	eDebugNoNewLineStart("SESSION(%d)/MMI %02x %02x %02x: ", session_nb, tag[0], tag[1],tag[2]);
+	eDebugNoNewLine("SESSION(%d)/MMI %02x %02x %02x: ", session_nb, tag[0], tag[1],tag[2]);
 	for (int i=0; i<len; i++)
 		eDebugNoNewLine("%02x ", ((const unsigned char*)data)[i]);
-	eDebugEOL();
+	eDebug("");
 
 	if ((tag[0]==0x9f) && (tag[1]==0x88))
 	{
@@ -95,7 +95,7 @@ int eDVBCIMMISession::stopMMI()
 	unsigned char tag[]={0x9f, 0x88, 0x00};
 	unsigned char data[]={0x00};
 	sendAPDU(tag, data, 1);
-
+	
 	return 0;
 }
 
@@ -107,7 +107,7 @@ int eDVBCIMMISession::answerText(int answer)
 	unsigned char data[]={0x00};
 	data[0] = answer & 0xff;
 	sendAPDU(tag, data, 1);
-
+	
 	return 0;
 }
 
@@ -133,7 +133,7 @@ int eDVBCIMMISession::cancelEnq()
 	unsigned char tag[]={0x9f, 0x88, 0x08};
 	unsigned char data[]={0x00}; // canceled
 	sendAPDU(tag, data, 1);
-
+	
 	return 0;
 }
 

@@ -1,7 +1,7 @@
 #include <lib/dvb/esection.h>
 #include <lib/base/eerror.h>
 
-void eGTable::sectionRead(const uint8_t *d)
+void eGTable::sectionRead(const __u8 *d)
 {
 	unsigned int last_section_number = d[7];
 	m_table.flags &= ~eDVBTableSpec::tfAnyVersion;
@@ -62,7 +62,7 @@ RESULT eGTable::start(iDVBSectionReader *reader, const eDVBTableSpec &table)
 	m_table = table;
 
 	m_reader = reader;
-	m_reader->connectRead(slot(*this, &eGTable::sectionRead), m_sectionRead_conn);
+	m_reader->connectRead(sigc::mem_fun(*this, &eGTable::sectionRead), m_sectionRead_conn);
 
 	m_tries = 0;
 

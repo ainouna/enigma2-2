@@ -11,14 +11,14 @@
 #include <lib/service/servicedvb.h>
 
 class eDVBServiceRecord: public eDVBServiceBase,
-	public iRecordableService,
+	public iRecordableService, 
 	public iStreamableService,
 	public iSubserviceList,
-	public Object
+	public sigc::trackable
 {
 	DECLARE_REF(eDVBServiceRecord);
 public:
-	RESULT connectEvent(const Slot2<void,iRecordableService*,int> &event, ePtr<eConnection> &connection);
+	RESULT connectEvent(const sigc::slot2<void,iRecordableService*,int> &event, ePtr<eConnection> &connection);
 	RESULT prepare(const char *filename, time_t begTime, time_t endTime, int eit_event_id, const char *name, const char *descr, const char *tags, bool descramble, bool recordecm);
 	RESULT prepareStreaming(bool descramble, bool includeecm);
 	RESULT start(bool simulate=false);
@@ -42,16 +42,17 @@ private:
 	bool m_record_ecm;
 	bool m_descramble;
 	bool m_is_stream_client;
+	bool m_is_pvr;
 	friend class eServiceFactoryDVB;
 	eDVBServiceRecord(const eServiceReferenceDVB &ref, bool isstreamclient = false);
-
+	
 	eDVBServiceEITHandler m_event_handler;
-
+	
 	eServiceReferenceDVB m_ref;
-
+	
 	ePtr<iDVBTSRecorder> m_record;
 	ePtr<eConnection> m_con_record_event;
-
+	
 	int m_recording, m_tuned, m_error;
 	std::set<int> m_pids_active;
 	std::string m_filename;
@@ -60,14 +61,14 @@ private:
 	int m_target_fd;
 	int m_streaming;
 	int m_last_event_id;
-
+	
 	int doPrepare();
 	int doRecord();
 
 			/* events */
 	void serviceEvent(int event);
-	Signal2<void,iRecordableService*,int> m_event;
-
+	sigc::signal2<void,iRecordableService*,int> m_event;
+	
 			/* recorder events */
 	void recordEvent(int event);
 

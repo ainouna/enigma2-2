@@ -21,7 +21,7 @@ class eRCKey;
  *
  * Handles one remote control. Gets codes from a \ref eRCDriver. Produces events in \ref eRCInput.
  */
-class eRCDevice: public Object
+class eRCDevice: public sigc::trackable
 {
 protected:
 	eRCInput *input;
@@ -35,7 +35,7 @@ public:
 	 * \param input The \ref eRCDriver where this remote gets its codes from.
 	 */
 	eRCDevice(std::string id, eRCDriver *input);
-	~eRCDevice();
+	virtual ~eRCDevice();
 	/**
 	 * \brief Handles a device specific code.
 	 *
@@ -61,7 +61,7 @@ public:
 /**
  * Receives codes from one or more remote controls.
  */
-class eRCDriver: public Object
+class eRCDriver: public sigc::trackable
 {
 protected:
 	std::list<eRCDevice*> listeners;
@@ -90,7 +90,7 @@ public:
 		listeners.remove(dev);
 	}
 	~eRCDriver();
-
+	
 	void enable(int en) { enabled=en; }
 	virtual void setExclusive(bool) { }
 	virtual bool isKeyboard() { return false; }
@@ -132,7 +132,7 @@ public:
 	eRCDevice *producer;
 	int code, flags;
 
-	eRCKey(eRCDevice *producer, int code, int flags):
+	eRCKey(eRCDevice *producer, int code, int flags): 
 		producer(producer), code(code), flags(flags)
 	{
 	}
@@ -182,9 +182,9 @@ public:
 
 #endif
 
-class eRCInput: public Object
+class eRCInput: public sigc::trackable
 {
-	int locked;
+	int locked;	
 	static eRCInput *instance;
 	int keyboardMode;
 #ifdef SWIG
@@ -203,7 +203,7 @@ public:
 protected:
 	std::map<std::string,eRCDevice*,lstr> devices;
 public:
-	Signal1<void, const eRCKey&> keyEvent;
+	sigc::signal1<void, const eRCKey&> keyEvent;
 	eRCInput();
 	~eRCInput();
 
@@ -214,16 +214,16 @@ public:
 	   i.e. not plain remote controls. It's up to the input device
 	   driver to decide wheter an input device is a keyboard or
 	   not.
-
-	   kmNone will ignore all Ascii Characters sent from the
+	   
+	   kmNone will ignore all Ascii Characters sent from the 
 	   keyboard/console driver, only give normal keycodes to the
 	   application.
-
+	   
 	   kmAscii will filter out all keys which produce ascii characters,
 	   and send them instead. Note that Modifiers like shift will still
 	   be send. Control keys which produce escape codes are send using
-	   normal keycodes.
-
+	   normal keycodes. 
+	   
 	   kmAll will ignore all keycodes, and send everything as ascii,
 	   including escape codes. Pretty much useless, since you should
 	   lock the console and pass this as the console fd for making the
@@ -234,7 +234,7 @@ public:
 	{
 		/*emit*/ keyEvent(key);
 	}
-
+	
 	void addDevice(const std::string &id, eRCDevice *dev);
 	void removeDevice(const std::string &id);
 	eRCDevice *getDevice(const std::string &id);

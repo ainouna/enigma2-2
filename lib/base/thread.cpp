@@ -38,12 +38,12 @@ int eThread::runAsync(int prio, int policy)
 		/* the thread might already run. */
 	if (sync())
 		return -1;
-
+	
 	ASSERT(m_state.value() == 1); /* sync postconditions */
 	ASSERT(!m_alive);
 	m_state.down();
 	ASSERT(m_state.value() == 0);
-
+	
 	m_alive = 1;
 	m_started = 0;
 
@@ -52,7 +52,7 @@ int eThread::runAsync(int prio, int policy)
 	pthread_attr_init(&attr);
 	if (pthread_attr_setstacksize(&attr, default_stack_size) != 0)
 		eDebug("[eThread] pthread_attr_setstacksize failed");
-
+	
 	if (prio || policy)
 	{
 		struct sched_param p;
@@ -62,7 +62,8 @@ int eThread::runAsync(int prio, int policy)
 	}
 
 	if (the_thread) {
-		eDebug("old thread joined %d", pthread_join(the_thread, 0));
+		int ret = pthread_join(the_thread, 0);
+		eDebug("[eThread] old thread joined %d", ret);
 		the_thread = 0;
 	}
 
@@ -73,7 +74,7 @@ int eThread::runAsync(int prio, int policy)
 		eDebug("couldn't create new thread");
 		return -1;
 	}
-
+	
 	pthread_attr_destroy(&attr);
 	return 0;
 }

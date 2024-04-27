@@ -14,7 +14,7 @@ public:
 	enum {
 		NONE, SLEEP, SET_VOLTAGE, SET_TONE, GOTO,
 		SEND_DISEQC, SEND_TONEBURST, SET_FRONTEND,
-		SET_TIMEOUT, IF_TIMEOUT_GOTO,
+		SET_TIMEOUT, IF_TIMEOUT_GOTO, 
 		IF_VOLTAGE_GOTO, IF_NOT_VOLTAGE_GOTO,
 		SET_POWER_LIMITING_MODE,
 		SET_ROTOR_DISEQC_RETRYS, IF_NO_MORE_ROTOR_DISEQC_RETRYS_GOTO,
@@ -32,8 +32,7 @@ public:
 		TAKEOVER,
 		WAIT_TAKEOVER,
 		RELEASE_TAKEOVER,
-		IF_TUNER_UNLOCKED_GOTO,
-		CHANGE_TUNER_TYPE
+		IF_TUNER_UNLOCKED_GOTO
 	};
 	int cmd;
 	struct rotor
@@ -160,14 +159,14 @@ public:
 	enum t_diseqc_mode { NONE=0, V1_0=1, V1_1=2, V1_2=3, SMATV=4 };	// DiSEqC Mode
 	enum t_toneburst_param { NO=0, A=1, B=2 };
 #ifndef SWIG
-	uint8_t m_committed_cmd;
+	__u8 m_committed_cmd;
 	t_diseqc_mode m_diseqc_mode;
 	t_toneburst_param m_toneburst_param;
 
-	uint8_t m_repeats;	// for cascaded switches
+	__u8 m_repeats;	// for cascaded switches
 	bool m_use_fast;	// send no DiSEqC on H/V or Lo/Hi change
 	bool m_seq_repeat;	// send the complete DiSEqC Sequence twice...
-	uint8_t m_command_order;
+	__u8 m_command_order;
 	/* 	diseqc 1.0)
 			0) commited, toneburst
 			1) toneburst, committed
@@ -176,7 +175,7 @@ public:
 			3) toneburst, committed, uncommitted
 			4) uncommitted, committed, toneburst
 			5) toneburst, uncommitted, committed */
-	uint8_t m_uncommitted_cmd;	// state of the 4 uncommitted switches..
+	__u8 m_uncommitted_cmd;	// state of the 4 uncommitted switches..
 #endif
 };
 
@@ -192,7 +191,7 @@ public:
 #ifndef SWIG
 	t_voltage_mode m_voltage_mode;
 	t_22khz_signal m_22khz_signal;
-	uint8_t m_rotorPosNum; // 0 is disable.. then use gotoxx
+	__u8 m_rotorPosNum; // 0 is disable.. then use gotoxx
 #endif
 };
 
@@ -211,15 +210,15 @@ public:
 	struct eDVBSatelliteRotorInputpowerParameters
 	{
 		bool m_use;	// can we use rotor inputpower to detect rotor running state ?
-		uint8_t m_delta;	// delta between running and stopped rotor
+		__u8 m_delta;	// delta between running and stopped rotor
 		unsigned int m_turning_speed; // SLOW, FAST, or fast turning epoch
 	};
 	eDVBSatelliteRotorInputpowerParameters m_inputpower_parameters;
 
 	struct eDVBSatelliteRotorGotoxxParameters
 	{
-		uint8_t m_lo_direction;	// EAST, WEST
-		uint8_t m_la_direction;	// NORT, SOUTH
+		__u8 m_lo_direction;	// EAST, WEST
+		__u8 m_la_direction;	// NORT, SOUTH
 		double m_longitude;	// longitude for gotoXX? function
 		double m_latitude;	// latitude for gotoXX? function
 	};
@@ -251,13 +250,13 @@ public:
 
 	int m_slot_mask; // useable by slot ( 1 | 2 | 4...)
 
-	int m_lof_hi,	// for 2 band universal lnb 10600 Mhz (high band offset frequency)
-		m_lof_lo,	// for 2 band universal lnb  9750 Mhz (low band offset frequency)
-		m_lof_threshold;	// for 2 band universal lnb 11750 Mhz (band switch frequency)
+	unsigned int m_lof_hi,	// for 2 band universal lnb 10600 Mhz (high band offset frequency)
+				m_lof_lo,	// for 2 band universal lnb  9750 Mhz (low band offset frequency)
+				m_lof_threshold;	// for 2 band universal lnb 11750 Mhz (band switch frequency)
 
 	bool m_increased_voltage; // use increased voltage ( 14/18V )
 
-	std::multimap<int, eDVBSatelliteSwitchParameters> m_satellites;
+	std::map<int, eDVBSatelliteSwitchParameters> m_satellites;
 	eDVBSatelliteDiseqcParameters m_diseqc_parameters;
 	eDVBSatelliteRotorParameters m_rotor_parameters;
 
@@ -266,9 +265,9 @@ public:
 public:
 #define MAX_SATCR 32
 
-#define MAX_EN50607_POSITIONS 		64
-#define MAX_FIXED_LNB_POSITIONS		64
-#define MAX_MOVABLE_LNBS 		6
+#define MAX_EN50607_POSITIONS 64
+#define MAX_FIXED_LNB_POSITIONS 64
+#define MAX_MOVABLE_LNBS 6
 
 #define MAX_LNBNUM (MAX_FIXED_LNB_POSITIONS + MAX_MOVABLE_LNBS)
 
@@ -316,10 +315,11 @@ private:
 	static eDVBSatelliteEquipmentControl *instance;
 	eDVBSatelliteLNBParameters m_lnbs[144]; // i think its enough
 	int m_lnbidx; // current index for set parameters
-	std::multimap<int, eDVBSatelliteSwitchParameters>::iterator m_curSat;
+	std::map<int, eDVBSatelliteSwitchParameters>::iterator m_curSat;
 	eSmartPtrList<eDVBRegisteredFrontend> &m_avail_frontends, &m_avail_simulate_frontends;
 	int m_rotorMoving;
 	int m_not_linked_slot_mask;
+	int m_target_orbital_position;
 	bool m_canMeasureInputPower;
 #endif
 #ifdef SWIG
@@ -331,7 +331,7 @@ public:
 #ifndef SWIG
 	eDVBSatelliteEquipmentControl(eSmartPtrList<eDVBRegisteredFrontend> &avail_frontends, eSmartPtrList<eDVBRegisteredFrontend> &avail_simulate_frontends);
 	RESULT prepare(iDVBFrontend &frontend, const eDVBFrontendParametersSatellite &sat, int &frequency, int frontend_id, unsigned int tunetimeout);
-	RESULT prepareSTelectronicSatCR(iDVBFrontend &frontend, eDVBSatelliteLNBParameters &lnb_param, long band, int ifreq, int &tunerfreq, unsigned int &tuningword, int guard_offset);
+	RESULT prepareSTelectronicSatCR(iDVBFrontend &frontend, eDVBSatelliteLNBParameters &lnb_param, long band, int ifreq, int &tunerfreq, unsigned int &tuningword, int guard_offest);
 	RESULT prepareRFmagicCSS(iDVBFrontend &frontend, eDVBSatelliteLNBParameters &lnb_param, long band, int ifreq, int &tunerfreq, unsigned int &tuningword, int guard_offset);
 	void prepareTurnOffSatCR(iDVBFrontend &frontend); // used for unicable
 	int canTune(const eDVBFrontendParametersSatellite &feparm, iDVBFrontend *, int frontend_id, int *highest_score_lnb=0);
@@ -392,12 +392,9 @@ public:
 	void setRotorMoving(int, bool); // called from the frontend's
 	bool isRotorMoving();
 	bool canMeasureInputPower() { return m_canMeasureInputPower; }
-
-	PyObject *getBandCutOffFrequency(int slot_no, int orbital_position);
-	PyObject *getFrequencyRangeList(int slot_no, int orbital_position);
+	int getTargetOrbitalPosition() { return m_target_orbital_position; }
 
 	friend class eFBCTunerManager;
-
 };
 
 #endif

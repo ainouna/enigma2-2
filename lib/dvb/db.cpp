@@ -213,41 +213,8 @@ int eDVBService::isPlayable(const eServiceReference &ref, const eServiceReferenc
 		((const eServiceReferenceDVB&)ignore).getChannelID(chid_ignore);
 
 		if (res_mgr->canAllocateChannel(chid, chid_ignore, system, simulate))
-		{
-			std::string python_config_str;
-			bool use_ci_assignment = eConfigManager::getConfigBoolValue("config.misc.use_ci_assignment", false);
-			if (use_ci_assignment)
-			{
-				int is_ci_playable = 1;
-				PyObject *pName, *pModule, *pFunc;
-				PyObject *pArgs, *pArg, *pResult;
-				Py_Initialize();
-				pName = PyString_FromString("Tools.CIHelper");
-				pModule = PyImport_Import(pName);
-				Py_DECREF(pName);
-				if (pModule != NULL)
-				{
-					pFunc = PyObject_GetAttrString(pModule, "isPlayable");
-					if (pFunc) 
-					{
-						pArgs = PyTuple_New(1);
-						pArg = PyString_FromString(ref.toString().c_str());
-						PyTuple_SetItem(pArgs, 0, pArg);
-						pResult = PyObject_CallObject(pFunc, pArgs);
-						Py_DECREF(pArgs);
-						if (pResult != NULL)
-						{
-							is_ci_playable = PyInt_AsLong(pResult);
-							Py_DECREF(pResult);
-							return is_ci_playable;
-						}
-					}
-				}
-				eDebug("isPlayble... error in python code");
-				PyErr_Print();
-			}
 			return 1;
-		}
+
 		if (remote_fallback_enabled)
 			return 2;
 	}
@@ -451,6 +418,7 @@ static ePtr<eDVBFrontendParameters> parseFrontendData(char* line, int version)
 				&frequency, &symbol_rate, &polarisation, &fec, &orbital_position,
 				&inversion, &flags, &system, &modulation, &rolloff, &pilot,
 				&is_id, &pls_code, &pls_mode);
+
 			sat.frequency = frequency;
 			sat.symbol_rate = symbol_rate;
 			sat.polarisation = polarisation;
@@ -491,6 +459,9 @@ static ePtr<eDVBFrontendParameters> parseFrontendData(char* line, int version)
 			sscanf(line+2, "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d",
 				&frequency, &bandwidth, &code_rate_HP, &code_rate_LP, &modulation,
 				&transmission_mode, &guard_interval, &hierarchy, &inversion, &flags, &system, &plp_id);
+ 			// correction in system DVB-T for compability by morser
+ 			if (system == eDVBFrontendParametersTerrestrial::System_DVB_T_T2) system = eDVBFrontendParametersTerrestrial::System_DVB_T;
+ 			//
 			ter.frequency = frequency;
 			switch (bandwidth)
 			{
@@ -1515,6 +1486,7 @@ PyObject *eDVBDB::readCables(ePyObject cab_list, ePyObject tp_dict)
 					else if (name == "inversion") dest = &inversion;
 					else if (name == "system") dest = &system;
 					else continue;
+
 					if (dest)
 					{
 						tmp = strtol((const char*)attr->children->content, &end_ptr, 10);

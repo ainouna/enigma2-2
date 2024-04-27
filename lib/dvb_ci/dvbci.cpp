@@ -93,10 +93,7 @@ eData eDVBCISlot::sendData(unsigned char* data, int len)
 			d[0] = getSlotID();
 			d[1] = connection_id;
 			d[2] = T_DATA_LAST;
-			if (len > 127)
-				d[3] = 4;	/* pointer to next length */
-			else
-				d[3] = len + 1;	/* len */
+			d[3] = len + 1; 		/* len */
 			d[4] = connection_id; 	/* transport connection identifier*/
 			len += 5;
 		}
@@ -107,8 +104,8 @@ eData eDVBCISlot::sendData(unsigned char* data, int len)
 		d[0] = getSlotID();
 		d[1] = connection_id;
 		d[2] = T_DATA_LAST;
-		d[3] = len + 1;		/* len */
-		d[4] = connection_id;	/* transport connection identifier*/
+		d[3] = len + 1; 		/* len */
+		d[4] = connection_id; 	/* transport connection identifier*/
 		len = 5;
 	}
 
@@ -729,8 +726,8 @@ void eDVBCIInterfaces::recheckPMTHandlers()
 						data_source tuner_source = TUNER_A;
 						switch (tunernum)
 						{
-#ifdef TUNER_FBC
-							case 0 ... 18:
+#ifdef TUNER_VUSOLO4K
+							case 0 ... 10:
 								tuner_source = (data_source)tunernum;
 								break;
 #else
@@ -888,76 +885,18 @@ int eDVBCIInterfaces::getMMIState(int slotid)
 	return slot->getMMIState();
 }
 
-#ifdef TUNER_DM7080
-static char* readInputCI(const char *filename, int NimNumber)
-{
-	char id1[] = "NIM Socket";
-	char id2[] = "Input_Name";
-	char keys1[] = "1234567890";
-	char keys2[] = "12ABCDabcd";
-	char *inputName = 0;
-	char buf[256];
-	FILE *f;
-
-	f = fopen(filename, "rt");
-	if (f) 
-	{
-		while (fgets(buf, sizeof(buf), f))
-		{
-			char *p = strcasestr(buf, id1);
-			if (!p)
-				continue;
-
-			p += strlen(id1);
-			p += strcspn(p, keys1);
-			if (*p && strtol(p, 0, 0) == NimNumber)
-				break;
-		}
-
-		while (fgets(buf, sizeof(buf), f))
-		{
-			if (strcasestr(buf, id1))
-				break;
-
-			char *p = strcasestr(buf, id2);
-			if (!p)
-				continue;
-
-			p = strchr(p + strlen(id2), ':');
-			if (!p)
-				continue;
-
-			p++;
-			p += strcspn(p, keys2);
-			size_t len = strspn(p, keys2);
-			if (len > 0)
-			{
-				inputName = strndup(p, len);
-				break;
-			}
-		}
-
-		fclose(f);
-	}
-
-	return inputName;
-}
-#endif
-
-#ifdef TUNER_FBC
-static const char *tuner_source[] = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "CI0", "CI1", "CI2", "CI3"};
+#ifdef TUNER_VUSOLO4K
+static const char *tuner_source[] = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "CI0", "CI1", "CI2", "CI3"};
 #endif
 
 int eDVBCIInterfaces::setInputSource(int tuner_no, data_source source)
 {
-	int numCISlots = getNumOfSlots();
 //	eDebug("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 //	eDebug("eDVBCIInterfaces::setInputSource(%d %d)", tuner_no, (int)source);
-	if (numCISlots > 1) // FIXME .. we force DM8000 when more than one CI Slot is avail
+	if (getNumOfSlots() > 1) // FIXME .. we force DM8000 when more than one CI Slot is avail
 	{
 		char buf[64];
 		snprintf(buf, 64, "/proc/stb/tsmux/input%d", tuner_no);
-		char *srcCI = NULL;
 
 		FILE *input=0;
 		if((input = fopen(buf, "wb")) == NULL) {
@@ -965,12 +904,12 @@ int eDVBCIInterfaces::setInputSource(int tuner_no, data_source source)
 			return 0;
 		}
 
-		if (tuner_no >= numCISlots)
-			eDebug("setInputSource(%d, %d) failed... receiver just have %d inputs", tuner_no, (int)source, numCISlots);
+		if (tuner_no > 3)
+			eDebug("setInputSource(%d, %d) failed... dm8000 just have four inputs", tuner_no, (int)source);
 
 		switch(source)
 		{
-#ifdef TUNER_FBC
+#ifdef TUNER_VUSOLO4K
 			case TUNER_A ... CI_D:
 				fprintf(input, tuner_source[(int)source]);
  				break;
@@ -987,21 +926,6 @@ int eDVBCIInterfaces::setInputSource(int tuner_no, data_source source)
 			case CI_D:
 				fprintf(input, "CI3");
 				break;
-#ifdef TUNER_DM7080
-			case TUNER_A:
-			case TUNER_B:
-			case TUNER_C:
-			case TUNER_D:
-			case TUNER_E:
-			case TUNER_F:
-				srcCI = readInputCI("/proc/bus/nim_sockets", source);
-				if (srcCI)
-				{
-					fprintf(input, srcCI);
-					free(srcCI);
-				}
-				break;
-#else
 			case TUNER_A:
 				fprintf(input, "A");
 				break;
@@ -1021,7 +945,6 @@ int eDVBCIInterfaces::setInputSource(int tuner_no, data_source source)
 				fprintf(input, "F");
 				break;
 #endif
-#endif
 			default:
 				eDebug("setInputSource for input %d failed!!!\n", (int)source);
 				break;
@@ -1034,8 +957,8 @@ int eDVBCIInterfaces::setInputSource(int tuner_no, data_source source)
 		char buf[64];
 		snprintf(buf, 64, "/proc/stb/tsmux/input%d", tuner_no);
 
-		if (tuner_no >= numCISlots)
-			eDebug("setInputSource(%d, %d) failed... receiver just have %d inputs", tuner_no, (int)source, numCISlots);
+		if (tuner_no > 1)
+			eDebug("setInputSource(%d, %d) failed... dm7025 just have two inputs", tuner_no, (int)source);
 
 		FILE *input=0;
 		if((input = fopen(buf, "wb")) == NULL) {
@@ -1333,7 +1256,7 @@ void eDVBCISlot::data(int what)
 	}
 
 	if (what & eSocketNotifier::Read) {
-		uint8_t data[4096];
+		__u8 data[4096];
 		int r;
 		r = ::read(fd, data, 4096);
 		if(r > 0) {
@@ -1613,6 +1536,7 @@ int eDVBCISlot::reset()
 	eDVBCISession::deleteSessions(this);
 	eDVBCIInterfaces::getInstance()->ciRemoved(this);
 #else
+
 	if (state == stateInvalid)
 	{
 		unsigned char buf[256];
@@ -1808,10 +1732,9 @@ int eDVBCISlot::setSource(data_source source)
 		char buf[64];
 		snprintf(buf, 64, "/proc/stb/tsmux/ci%d_input", slotid);
 		FILE *ci = fopen(buf, "wb");
-		char *srcCI = NULL;
 		switch(source)
 		{
-#ifdef TUNER_FBC
+#ifdef TUNER_VUSOLO4K
 			case TUNER_A ... CI_D:
 				fprintf(ci, tuner_source[(int)source]);
 				break;
@@ -1828,21 +1751,6 @@ int eDVBCISlot::setSource(data_source source)
 			case CI_D:
 				fprintf(ci, "CI3");
 				break;
-#ifdef TUNER_DM7080
-			case TUNER_A:
-			case TUNER_B:
-			case TUNER_C:
-			case TUNER_D:
-			case TUNER_E:
-			case TUNER_F:
-				srcCI = readInputCI("/proc/bus/nim_sockets", source);
-				if (srcCI)
-				{
-					fprintf(ci, srcCI);
-					free(srcCI);
-				}
-				break;
-#else
 			case TUNER_A:
 				fprintf(ci, "A");
 				break;
@@ -1861,7 +1769,6 @@ int eDVBCISlot::setSource(data_source source)
 			case TUNER_F:
 				fprintf(ci, "F");
 				break;
-#endif
 #endif
 			default:
 				eDebug("CI Slot %d: setSource %d failed!!!\n", getSlotID(), (int)source);

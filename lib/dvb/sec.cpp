@@ -7,6 +7,8 @@
 
 #include <lib/base/eerror.h>
 
+#include "absdiff.h"
+
 #define SEC_DEBUG
 
 #ifdef SEC_DEBUG
@@ -34,8 +36,7 @@ void eDVBSatelliteEquipmentControl::setParam(int param, int value)
 }
 
 eDVBSatelliteEquipmentControl::eDVBSatelliteEquipmentControl(eSmartPtrList<eDVBRegisteredFrontend> &avail_frontends, eSmartPtrList<eDVBRegisteredFrontend> &avail_simulate_frontends)
-	:m_lnbidx((sizeof(m_lnbs) / sizeof(eDVBSatelliteLNBParameters))-1), m_curSat(m_lnbs[0].m_satellites.end()), m_avail_frontends(avail_frontends), m_avail_simulate_frontends(avail_simulate_frontends), m_rotorMoving(0),
-	m_not_linked_slot_mask(0), m_canMeasureInputPower(false)
+	:m_lnbidx((sizeof(m_lnbs) / sizeof(eDVBSatelliteLNBParameters))-1), m_curSat(m_lnbs[0].m_satellites.end()), m_avail_frontends(avail_frontends), m_avail_simulate_frontends(avail_simulate_frontends), m_rotorMoving(0)
 {
 	if (!instance)
 		instance = this;
@@ -50,17 +51,9 @@ eDVBSatelliteEquipmentControl::eDVBSatelliteEquipmentControl(eSmartPtrList<eDVBR
 		} \
 	} while(0)
 
-/**
- * @brief find best possible lnb for the current tune request
- *
- * @param sat reference to current sattelite parameters
- * @param fe reference to current frontend
- * @param slot_id representation of the slotnumber as an bitmask ( 1 << slotnumber)
- * @param highest_score_lnb index of lnb with highest score
- * @return score of lnb stored in highest_score_lnb
- */
 int eDVBSatelliteEquipmentControl::canTune(const eDVBFrontendParametersSatellite &sat, iDVBFrontend *fe, int slot_id, int *highest_score_lnb)
 {
+	const dvb_frontend_info fe_info = ((eDVBFrontend*)fe)->getFrontendInfo();
 	bool simulate = ((eDVBFrontend*)fe)->is_simulate();
 	bool direct_connected = m_not_linked_slot_mask & slot_id;
 	int score=0, satcount=0;
@@ -103,12 +96,10 @@ int eDVBSatelliteEquipmentControl::canTune(const eDVBFrontendParametersSatellite
 		fe->getData(eDVBFrontend::TONEBURST, linked_toneburst);
 	}
 
-	const dvb_frontend_info fe_info = ((eDVBFrontend*)fe)->getFrontendInfo(SYS_DVBS);
 	if (highest_score_lnb)
 		*highest_score_lnb = -1;
 
 	eSecDebugNoSimulate("canTune %d", slot_id);
-
 
 	for (int idx=0; idx <= m_lnbidx; ++idx )
 	{
@@ -126,143 +117,130 @@ int eDVBSatelliteEquipmentControl::canTune(const eDVBFrontendParametersSatellite
 
 			satcount += lnb_param.m_satellites.size();
 
-			std::pair<std::multimap<int, eDVBSatelliteSwitchParameters>::iterator, std::multimap<int, eDVBSatelliteSwitchParameters>::iterator> ii;
-			ii = lnb_param.m_satellites.equal_range(sat.orbital_position);
-
-			std::multimap<int, eDVBSatelliteSwitchParameters>::iterator sit;
-//				lnb_param.m_satellites.find(sat.orbital_position);
-
-			eSecDebugNoSimulate("%d option(s) at position %d", lnb_param.m_satellites.count(sat.orbital_position), sat.orbital_position);
-
-			if (lnb_param.m_satellites.count(sat.orbital_position))
+			std::map<int, eDVBSatelliteSwitchParameters>::iterator sit =
+				lnb_param.m_satellites.find(sat.orbital_position);
+			if ( sit != lnb_param.m_satellites.end())
 			{
-				for(sit = ii.first; sit != ii.second; ++sit)
+				bool diseqc=false;
+				long band=0,
+					satpos_depends_ptr=fe_satpos_depends_ptr,
+					csw = di_param.m_committed_cmd,
+					ucsw = di_param.m_uncommitted_cmd,
+					toneburst = di_param.m_toneburst_param,
+					rotor_pos = fe_rotor_pos;
+
+				eSecDebugNoSimulate("sat %d found", sat.orbital_position);
+
+				/* Dishpro bandstacking HACK */
+				if (lnb_param.m_lof_threshold == 1000)
 				{
-					bool diseqc=false;
-					long band=0,
-						satpos_depends_ptr=fe_satpos_depends_ptr,
-						csw = di_param.m_committed_cmd,
-						ucsw = di_param.m_uncommitted_cmd,
-						toneburst = di_param.m_toneburst_param,
-						rotor_pos = fe_rotor_pos;
-
-					eSecDebugNoSimulate("sat %d found", sat.orbital_position);
-
-					/* Dishpro bandstacking HACK */
-					if (lnb_param.m_lof_threshold == 1000)
+					if (!(sat.polarisation & eDVBFrontendParametersSatellite::Polarisation_Vertical))
 					{
-						if (!(sat.polarisation & eDVBFrontendParametersSatellite::Polarisation_Vertical))
-						{
-							band |= 1;
-						}
-						band |= 2; /* voltage always 18V for Dishpro */
+						band |= 1;
 					}
-					else
-					{
-						if ( sat.frequency > lnb_param.m_lof_threshold )
-							band |= 1;
-						if (!(sat.polarisation & eDVBFrontendParametersSatellite::Polarisation_Vertical))
-							band |= 2;
-					}
-
-					if (di_param.m_diseqc_mode >= eDVBSatelliteDiseqcParameters::V1_0)
-					{
-						diseqc=true;
-						if ( di_param.m_committed_cmd < eDVBSatelliteDiseqcParameters::SENDNO )
-							csw = 0xF0 | (csw << 2);
-
-						if (di_param.m_committed_cmd <= eDVBSatelliteDiseqcParameters::SENDNO)
-							csw |= band;
-
-						if ( di_param.m_diseqc_mode == eDVBSatelliteDiseqcParameters::V1_2 )  // ROTOR
-							rotor = true;
-
-						ret = 10000;
-					}
-					else
-					{
-						csw = band;
-						ret = 15000;
-					}
-
-					if (sat.no_rotor_command_on_tune && !rotor) {
-						eSecDebugNoSimulate("no rotor but no_rotor_command_on_tune is set.. ignore lnb %d", idx);
-						continue;
-					}
-
-					eSecDebugNoSimulate("ret1 %d", ret);
-
-					if (linked_in_use && !is_unicable)
-					{
-						// compare tuner data
-						if ( (csw != linked_csw) ||
-							( diseqc && (ucsw != linked_ucsw || toneburst != linked_toneburst) ) ||
-							( rotor && rotor_pos != sat.orbital_position ) )
-						{
-							ret = 0;
-						}
-						else
-							ret += 15;
-						eSecDebugNoSimulate("ret2 %d", ret);
-					}
-					else if ((rotor && satpos_depends_ptr != -1) && !(is_unicable && is_unicable_position_switch))
-					{
-						eSecDebugNoSimulate("satpos depends");
-						eDVBRegisteredFrontend *satpos_depends_to_fe = (eDVBRegisteredFrontend*) satpos_depends_ptr;
-						if (direct_connected) // current fe is direct connected.. (can turn the rotor)
-						{
-							if (satpos_depends_to_fe->m_inuse) // if the dependent frontend is in use?
-							{
-								if (rotor_pos != sat.orbital_position) // new orbital position not equal to current orbital pos?
-									ret = 0;
-								else
-									ret += 10;
-							}
-							eSecDebugNoSimulate("ret3 %d", ret);
-						}
-						else // current fe is dependent of another tuner ... (so this fe can't turn the rotor!)
-						{
-							// get current orb pos of the tuner with rotor connection
-							satpos_depends_to_fe->m_frontend->getData(eDVBFrontend::ROTOR_POS, rotor_pos);
-							if (rotor_pos == -1 /* we dont know the rotor position yet */
-								|| rotor_pos != sat.orbital_position ) // not the same orbital position?
-							{
-								ret = 0;
-							}
-						}
-						eSecDebugNoSimulate("ret4 %d", ret);
-					}
-
-					if (ret && rotor && rotor_pos != -1)
-						ret -= abs(rotor_pos-sat.orbital_position);
-
-					eSecDebugNoSimulate("ret5 %d", ret);
-
-					if (ret && !is_unicable)
-					{
-						int lof = sat.frequency > lnb_param.m_lof_threshold ?
-							lnb_param.m_lof_hi : lnb_param.m_lof_lo;
-						int tuner_freq = abs(sat.frequency - lof);
-						if (tuner_freq < fe_info.frequency_min || tuner_freq > fe_info.frequency_max)
-						{
-							eSecDebugNoSimulate("can't tune! tuner frequency %d not in range: frequency_min %d frequency_max %d", tuner_freq, fe_info.frequency_min, fe_info.frequency_max);
-							ret = 0;
-						}
-					}
-
-					if (ret && lnb_param.m_prio != -1)
-						ret = lnb_param.m_prio;
-
-					eSecDebugNoSimulate("ret %d, score old %d", ret, score);
-					if (ret > score)
-					{
-						score = ret;
-						if (highest_score_lnb)
-							*highest_score_lnb = idx;
-					}
-					eSecDebugNoSimulate("score new %d", score);
+					band |= 2; /* voltage always 18V for Dishpro */
+				}
+				else
+				{
+					if ( sat.frequency > lnb_param.m_lof_threshold )
+						band |= 1;
+					if (!(sat.polarisation & eDVBFrontendParametersSatellite::Polarisation_Vertical))
+						band |= 2;
 				}
 
+				if (di_param.m_diseqc_mode >= eDVBSatelliteDiseqcParameters::V1_0)
+				{
+					diseqc=true;
+					if ( di_param.m_committed_cmd < eDVBSatelliteDiseqcParameters::SENDNO )
+						csw = 0xF0 | (csw << 2);
+
+					if (di_param.m_committed_cmd <= eDVBSatelliteDiseqcParameters::SENDNO)
+						csw |= band;
+
+					if ( di_param.m_diseqc_mode == eDVBSatelliteDiseqcParameters::V1_2 )  // ROTOR
+						rotor = true;
+
+					ret = 10000;
+				}
+				else
+				{
+					csw = band;
+					ret = 15000;
+				}
+
+				if (sat.no_rotor_command_on_tune && !rotor) {
+					eSecDebugNoSimulate("no rotor but no_rotor_command_on_tune is set.. ignore lnb %d", idx);
+					continue;
+				}
+
+				eSecDebugNoSimulate("ret1 %d", ret);
+
+				if (linked_in_use && !is_unicable)
+				{
+					// compare tuner data
+					if ( (csw != linked_csw) ||
+						( diseqc && (ucsw != linked_ucsw || toneburst != linked_toneburst) ) ||
+						( rotor && rotor_pos != sat.orbital_position ) )
+					{
+						ret = 0;
+					}
+					else
+						ret += 15;
+					eSecDebugNoSimulate("ret2 %d", ret);
+				}
+				else if ((rotor && satpos_depends_ptr != -1) && !(is_unicable && is_unicable_position_switch))
+				{
+					eSecDebugNoSimulate("satpos depends");
+					eDVBRegisteredFrontend *satpos_depends_to_fe = (eDVBRegisteredFrontend*) satpos_depends_ptr;
+					if (direct_connected) // current fe is direct connected.. (can turn the rotor)
+					{
+						if (satpos_depends_to_fe->m_inuse) // if the dependent frontend is in use?
+						{
+							if (rotor_pos != sat.orbital_position) // new orbital position not equal to current orbital pos?
+								ret = 0;
+							else
+								ret += 10;
+						}
+						eSecDebugNoSimulate("ret3 %d", ret);
+					}
+					else // current fe is dependent of another tuner ... (so this fe can't turn the rotor!)
+					{
+						// get current orb pos of the tuner with rotor connection
+						satpos_depends_to_fe->m_frontend->getData(eDVBFrontend::ROTOR_POS, rotor_pos);
+						if (rotor_pos == -1 /* we dont know the rotor position yet */
+							|| rotor_pos != sat.orbital_position ) // not the same orbital position?
+						{
+							ret = 0;
+						}
+					}
+					eSecDebugNoSimulate("ret4 %d", ret);
+				}
+
+				if (ret && rotor && rotor_pos != -1)
+					ret -= abs(rotor_pos-sat.orbital_position);
+
+				eSecDebugNoSimulate("ret5 %d", ret);
+
+				if (ret && !is_unicable)
+				{
+					int lof = sat.frequency > lnb_param.m_lof_threshold ?
+						lnb_param.m_lof_hi : lnb_param.m_lof_lo;
+					unsigned int tuner_freq = absdiff(sat.frequency, lof);
+					if (tuner_freq < fe_info.frequency_min || tuner_freq > fe_info.frequency_max)
+						ret = 0;
+				}
+
+				if (ret && lnb_param.m_prio != -1)
+					ret = lnb_param.m_prio;
+
+				eSecDebugNoSimulate("ret %d, score old %d", ret, score);
+				if (ret > score)
+				{
+					score = ret;
+					if (highest_score_lnb)
+						*highest_score_lnb = idx;
+				}
+				eSecDebugNoSimulate("score new %d", score);
 			}
 		}
 	}
@@ -310,7 +288,6 @@ bool need_turn_fast(int turn_speed)
 		if (!simulate) \
 			eDebug(x); \
 	} while(0)
-
 //round value to multiple of m
 int roundMulti(int value, int m)
 {
@@ -331,16 +308,16 @@ int heterodyne(iDVBFrontend &frontend, int rf, int lof)
 	return ifreq;
 }
 
-RESULT eDVBSatelliteEquipmentControl::prepareRFmagicCSS(iDVBFrontend &frontend, eDVBSatelliteLNBParameters &lnb_param, long band, int ifreq, int &tunerfreq, unsigned int &tuningword, int guard_offset)
+RESULT eDVBSatelliteEquipmentControl::prepareRFmagicCSS(iDVBFrontend &frontend, eDVBSatelliteLNBParameters &lnb_param, long band, int ifreq, int &tunerfreq, unsigned int &tuningword, int guard_offest)
 {
 	bool simulate = ((eDVBFrontend*)&frontend)-> is_simulate();
-	int vco = roundMulti(lnb_param.SatCRvco + guard_offset + ifreq, 1000);
+	int vco = roundMulti(lnb_param.SatCRvco + guard_offest + ifreq, 1000);
 	tunerfreq = heterodyne(frontend, ifreq, vco);
 	unsigned int positions = lnb_param.SatCR_positions ? lnb_param.SatCR_positions : 1;
 	unsigned int posnum = (lnb_param.SatCR_positionnumber > 0)										// position == 0 -> use first position
 				&& (lnb_param.SatCR_positionnumber <= MAX_EN50607_POSITIONS) ?  lnb_param.SatCR_positionnumber - 1 : 0;
 
-	tuningword = (((roundMulti(vco - lnb_param.SatCRvco - 2*guard_offset - 100000, 1000)/1000)&0x07FF)<<8)
+	tuningword = (((roundMulti(vco - lnb_param.SatCRvco - 2*guard_offest - 100000, 1000)/1000)&0x07FF)<<8)
 			| (band & 0x3)						//Bit0:HighLow  Bit1:VertHor
 			| ((posnum & 0x3F) << 2)				//position number (0..63)
 			| ((lnb_param.SatCR_idx & 0x1F) << 19);			//addresse of SatCR (0..31)
@@ -350,10 +327,10 @@ RESULT eDVBSatelliteEquipmentControl::prepareRFmagicCSS(iDVBFrontend &frontend, 
 	return vco;
 }
 
-RESULT eDVBSatelliteEquipmentControl::prepareSTelectronicSatCR(iDVBFrontend &frontend, eDVBSatelliteLNBParameters &lnb_param, long band, int ifreq, int &tunerfreq, unsigned int &tuningword, int guard_offset)
+RESULT eDVBSatelliteEquipmentControl::prepareSTelectronicSatCR(iDVBFrontend &frontend, eDVBSatelliteLNBParameters &lnb_param, long band, int ifreq, int &tunerfreq, unsigned int &tuningword, int guard_offest)
 {
 	bool simulate = ((eDVBFrontend*)&frontend)->is_simulate();
-	int vco = roundMulti(lnb_param.SatCRvco + ifreq + guard_offset, 4000);
+	int vco = roundMulti(lnb_param.SatCRvco + ifreq + guard_offest, 4000);
 	tunerfreq = heterodyne(frontend, ifreq, vco);
 	unsigned int positions = lnb_param.SatCR_positions ? lnb_param.SatCR_positions : 1;
 	unsigned int posnum = (lnb_param.SatCR_positionnumber > 0)							// position == 0 -> use position A
@@ -370,15 +347,14 @@ RESULT eDVBSatelliteEquipmentControl::prepareSTelectronicSatCR(iDVBFrontend &fro
 		, (band & 2)?'H':'V', (band & 1)?'H':'L', posnum, lnb_param.SatCR_idx, tunerfreq/1000, vco /1000, tuningword);
 	return  vco;
 }
-
-
+ 
 /**
  * @brief prepare for tune
  * 
- * @param frontend reference to current frontend
+ * @param frontend reference tu current frontend
  * @param sat reference to current sattelite parameters
  * @param frequency reference to tuner frequency. Initial value is ignored, committing new frequency on tuner
- * @param slot_id representation of the slotnumber as an bitmask ( 1 << slotnumber)
+ * @param slot_id ...
  * @param tunetimeout 5000 ms currenly hardcoded in eDVBFrontend::tune()
  * @return RESULT
  */
@@ -393,7 +369,7 @@ RESULT eDVBSatelliteEquipmentControl::prepare(iDVBFrontend &frontend, const eDVB
 		eDVBSatelliteDiseqcParameters &di_param = lnb_param.m_diseqc_parameters;
 		eDVBSatelliteRotorParameters &rotor_param = lnb_param.m_rotor_parameters;
 
-		std::multimap<int, eDVBSatelliteSwitchParameters>::iterator sit =
+		std::map<int, eDVBSatelliteSwitchParameters>::iterator sit =
 			lnb_param.m_satellites.find(sat.orbital_position);
 		if ( sit != lnb_param.m_satellites.end())
 		{
@@ -434,6 +410,8 @@ RESULT eDVBSatelliteEquipmentControl::prepare(iDVBFrontend &frontend, const eDVB
 
 			frontend.getData(eDVBFrontend::SATPOS_DEPENDS_PTR, satposDependPtr);
 
+			if (diseqc_mode == eDVBSatelliteDiseqcParameters::V1_2)
+				m_target_orbital_position = sat.orbital_position;
 			if (!(m_not_linked_slot_mask & slot_id))  // frontend with direct connection?
 			{
 				long linked_prev_ptr;
@@ -534,7 +512,7 @@ RESULT eDVBSatelliteEquipmentControl::prepare(iDVBFrontend &frontend, const eDVB
 				{
 					case 1:
 						eDebugNoSimulate("JESS (EN50607)");
-						if(lnb_param.SatCR_switch_reliable)
+						if(gfrq)
 						{
 							long inv;
 							frontend.getData(eDVBFrontend::SPECTINV_CNT, inv);
@@ -547,7 +525,7 @@ RESULT eDVBSatelliteEquipmentControl::prepare(iDVBFrontend &frontend, const eDVB
 					case 0:
 					default:
 						eDebugNoSimulate("Unicable (EN50494)");
-						if(lnb_param.SatCR_switch_reliable)
+						if(gfrq)
 						{
 							long inv;
 							frontend.getData(eDVBFrontend::SPECTINV_CNT, inv);
@@ -927,7 +905,6 @@ RESULT eDVBSatelliteEquipmentControl::prepare(iDVBFrontend &frontend, const eDVB
 					frontend.setData(eDVBFrontend::SATCR, -1);
 				}
 
-
 				frontend.setData(eDVBFrontend::DICTION, lnb_param.SatCR_format);
 //TODO				frontend.setData(eDVBFrontend::PIN, lnb_param.SatCR_pin);
 
@@ -1219,7 +1196,7 @@ RESULT eDVBSatelliteEquipmentControl::prepare(iDVBFrontend &frontend, const eDVB
 					sec_sequence.push_back( eSecCommand(eSecCommand::START_TUNE_TIMEOUT, tunetimeout) );
 					sec_sequence.push_back( eSecCommand(eSecCommand::SET_FRONTEND, 1) );
 					sec_sequence.push_back( eSecCommand(eSecCommand::GOTO, -5) );
-					eDebugNoSimulate("set rotor timeout to %d seconds", mrt);
+					eDebugNoSimulate("[eDVBSatelliteEquipmentControl] set rotor timeout to %d seconds", mrt);
 				}
 				sec_fe->setData(eDVBFrontend::NEW_ROTOR_CMD, RotorCmd);
 				sec_fe->setData(eDVBFrontend::NEW_ROTOR_POS, sat.orbital_position);
@@ -1256,13 +1233,12 @@ RESULT eDVBSatelliteEquipmentControl::prepare(iDVBFrontend &frontend, const eDVB
 			{
 				eDVBFrontend *fe = (eDVBFrontend *)&frontend;
 				fe->getTop(frontend, fe);
-
+ 
 				int state;
 				fe->getState(state);
 				if (state != eDVBFrontend::stateClosed)
 				{
 					eSecCommandList sec_takeover_sequence;
-					sec_takeover_sequence.push_front(eSecCommand(eSecCommand::CHANGE_TUNER_TYPE,((eDVBFrontend *)&frontend)->getCurrentType()));
 					sec_takeover_sequence.push_front(eSecCommand(eSecCommand::TAKEOVER, (long)&frontend));
 					fe->setSecSequence(sec_takeover_sequence, (eDVBFrontend *)&frontend);
 					eDebugNoSimulate("takeover_sec %d",fe->getDVBID());
@@ -1273,6 +1249,7 @@ RESULT eDVBSatelliteEquipmentControl::prepare(iDVBFrontend &frontend, const eDVB
 				}
 			}
 			frontend.setSecSequence(sec_sequence);
+
 			return 0;
 		}
 	}
@@ -1368,7 +1345,6 @@ void eDVBSatelliteEquipmentControl::prepareTurnOffSatCR(iDVBFrontend &frontend)
 		if (state != eDVBFrontend::stateClosed)
 		{
 			eSecCommandList sec_takeover_sequence;
-			sec_takeover_sequence.push_front(eSecCommand(eSecCommand::CHANGE_TUNER_TYPE,((eDVBFrontend *)&frontend)->getCurrentType()));
 			sec_takeover_sequence.push_front(eSecCommand(eSecCommand::TAKEOVER, (long)&frontend));
 			fe->setSecSequence(sec_takeover_sequence, (eDVBFrontend *)&frontend);
 			eDebug("takeover_sec %d",fe->getDVBID());
@@ -1752,12 +1728,21 @@ RESULT eDVBSatelliteEquipmentControl::addSatellite(int orbital_position)
 	eSecDebug("eDVBSatelliteEquipmentControl::addSatellite(%d)", orbital_position);
 	if ( currentLNBValid() )
 	{
-		std::multimap<int,eDVBSatelliteSwitchParameters>::iterator ret =
-			m_lnbs[m_lnbidx].m_satellites.insert(
-				std::pair<int, eDVBSatelliteSwitchParameters>(orbital_position, eDVBSatelliteSwitchParameters())
-			);
-
-		m_curSat = ret;
+		std::map<int, eDVBSatelliteSwitchParameters>::iterator it =
+			m_lnbs[m_lnbidx].m_satellites.find(orbital_position);
+		if ( it == m_lnbs[m_lnbidx].m_satellites.end() )
+		{
+			std::pair<std::map<int, eDVBSatelliteSwitchParameters>::iterator, bool > ret =
+				m_lnbs[m_lnbidx].m_satellites.insert(
+					std::pair<int, eDVBSatelliteSwitchParameters>(orbital_position, eDVBSatelliteSwitchParameters())
+				);
+			if ( ret.second )
+				m_curSat = ret.first;
+			else
+				return -ENOMEM;
+		}
+		else
+			return -EEXIST;
 	}
 	else
 		return -ENOENT;
@@ -1941,52 +1926,4 @@ void eDVBSatelliteEquipmentControl::setRotorMoving(int slot_no, bool b)
 		m_rotorMoving |= (1 << slot_no);
 	else
 		m_rotorMoving &= ~(1 << slot_no);
-}
-
-PyObject *eDVBSatelliteEquipmentControl::getBandCutOffFrequency(int slot_no, int orbital_position)
-{
-	PyObject *pyList = PyList_New(0);
-	for (int idx=0; idx <= m_lnbidx; ++idx)
-	{
-		eDVBSatelliteLNBParameters &lnb_param = m_lnbs[idx];
-		if ( lnb_param.m_slot_mask & (1 << slot_no)) // lnb for correct tuner?
-		{
-			std::map<int, eDVBSatelliteSwitchParameters>::iterator sit = lnb_param.m_satellites.find(orbital_position);
-			if ( sit != lnb_param.m_satellites.end())
-				PyList_Append(pyList, PyInt_FromLong(lnb_param.m_lof_threshold));
-		}
-	}
-	return pyList;
-}
-
-PyObject *eDVBSatelliteEquipmentControl::getFrequencyRangeList(int slot_no, int orbital_position)
-{
-	PyObject *pyList = PyList_New(0);
-	dvb_frontend_info fe_info;
-
-	eSmartPtrList<eDVBRegisteredFrontend>::iterator it(m_avail_frontends.begin());
-	for (; it != m_avail_frontends.end(); ++it)
-	{
-		if (it->m_frontend->getSlotID() == slot_no)
-		{
-			fe_info = ((eDVBFrontend*)it->m_frontend)->getFrontendInfo(SYS_DVBS);
-		}
-	}
-
-	for (int idx=0; idx <= m_lnbidx; ++idx)
-	{
-		eDVBSatelliteLNBParameters &lnb_param = m_lnbs[idx];
-		if ( lnb_param.m_slot_mask & (1 << slot_no)) // lnb for correct tuner?
-		{
-			std::map<int, eDVBSatelliteSwitchParameters>::iterator sit = lnb_param.m_satellites.find(orbital_position);
-			if ( sit != lnb_param.m_satellites.end())
-			{
-				PyObject *pyTuple = PyTuple_New(2);
-				PyTuple_SET_ITEM(pyTuple, 0, PyInt_FromLong(lnb_param.m_lof_lo + fe_info.frequency_min));
-				PyTuple_SET_ITEM(pyTuple, 1, PyInt_FromLong(lnb_param.m_lof_hi + fe_info.frequency_max));
-				PyList_Append(pyList, pyTuple);
-			}
-		}
-	}
-	return pyList;
 }

@@ -58,6 +58,7 @@ public:
 		m_ProfileCode(profileCode)
 	{}
 };
+
 typedef std::list<HbbTVApplicationInfo *> HbbTVApplicationInfoList;
 typedef HbbTVApplicationInfoList::iterator HbbTVApplicationInfoListIterator;
 typedef HbbTVApplicationInfoList::const_iterator HbbTVApplicationInfoListConstIterator;
@@ -71,7 +72,6 @@ class eDVBServicePMTHandler: public eDVBPMTParser
 
 	int m_last_channel_state;
 	eDVBCAService *m_ca_servicePtr;
-	bool doDescramble;
 	ePtr<eDVBScan> m_dvb_scan; // for sdt scan
 
 	eAUTable<eTable<ProgramAssociationSection> > m_PAT;
@@ -140,7 +140,7 @@ public:
 		eventStopped,
 	};
 #ifndef SWIG
-	Signal1<void,int> serviceEvent;
+	sigc::signal1<void,int> serviceEvent;
 
 	int getProgramInfo(program &program);
 	int getDataDemux(ePtr<iDVBDemux> &demux);
@@ -178,7 +178,7 @@ public:
 	int tune(eServiceReferenceDVB &ref, int use_decode_demux, eCueSheet *sg=0, bool simulate=false, eDVBService *service = 0, serviceType type = livetv, bool descramble = true);
 
 	/* new interface */
-	int tuneExt(eServiceReferenceDVB &ref, int use_decode_demux, ePtr<iTsSource> &, const char *streaminfo_file, eCueSheet *sg=0, bool simulate=false, eDVBService *service = 0, serviceType type = livetv, bool descramble = true);
+	int tuneExt(eServiceReferenceDVB &ref, ePtr<iTsSource> &, const char *streaminfo_file, eCueSheet *sg=0, bool simulate=false, eDVBService *service = 0, serviceType type = livetv, bool descramble = true);
 
 	void free();
 private:

@@ -11,14 +11,14 @@
  3 thread is running
  4 thread has finished, but not yet joined
  5 thread has joined (same as state 1)
-
+ 
  sync() will return:
  	0 (="not alive") for 1, 4, 5
  	1 for 3, 4
-
+ 	
  	it will wait when state is 2. It can't differentiate between
  	state 3 and 4, because a thread could always finish.
-
+ 	
  	all other state transitions (1 -> 2, 4 -> 5) must be activately
  	changed by either calling run() or kill().
  */

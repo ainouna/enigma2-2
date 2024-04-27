@@ -23,15 +23,19 @@
 
 #include <lib/base/object.h>
 #include <lib/dvb/demux.h>
+#include <lib/dvb/decoder.h>
 // Amlogic includes
 extern "C" {
 #include <codec.h>
+#include <adec-external-ctrl.h>
+#define AMSTREAM_IOC_MAGIC  'S'
+#define AMSTREAM_IOC_PCRID  _IOW(AMSTREAM_IOC_MAGIC, 0x4f, int)
 }
 
 class eSocketNotifier;
 
 
-class eAMLTSMPEGDecoder: public Object, public iTSMPEGDecoder
+class eAMLTSMPEGDecoder: public sigc::trackable, public iTSMPEGDecoder
 {
 	DECLARE_REF(eAMLTSMPEGDecoder);
 private:
@@ -40,8 +44,11 @@ private:
 	static int m_audio_channel;
 	std::string m_radio_pic;
 	ePtr<eDVBDemux> m_demux;
+	ePtr<eDVBTText> m_text;
 	int m_vpid, m_vtype, m_apid, m_atype, m_pcrpid, m_textpid;
 	int m_width, m_height, m_framerate, m_aspect, m_progressive;
+	int aml_fd;
+	int cntl_fd;
 	enum
 	{
 		changeVideo = 1,
@@ -62,15 +69,24 @@ private:
 
 	void demux_event(int event);
 	void video_event(struct videoEvent);
-	Signal1<void, struct videoEvent> m_video_event;
+	sigc::signal1<void, struct videoEvent> m_video_event;
 	int m_video_clip_fd;
 	ePtr<eTimer> m_showSinglePicTimer;
 	void finishShowSinglePic(); // called by timer
 	ePtr<eTimer> m_VideoRead;	
 	void parseVideoInfo(); // called by timer
-
+	
 	//Amcodec related
+
+	int m_axis[8];
+
+	int osdBlank(int cmd);
+	int setAvsyncEnable(int enable);
+	int setSyncMode(int mode);
 	codec_para_t m_codec;
+	dec_sysinfo_t am_sysinfo;
+	arm_audio_info am_param;
+	void *adec_handle;
 
 public:
 	enum { aMPEG, aAC3, aDTS, aAAC, aAACHE, aLPCM, aDTSHD, aDDP, MPEG2 = 0, MPEG4_H264, MPEG1, MPEG4_Part2, VC1, VC1_SM, H265_HEVC };
@@ -119,7 +135,7 @@ public:
 	RESULT setRadioPic(const std::string &filename);
 		/* what 0=auto, 1=video, 2=audio. */
 	RESULT getPTS(int what, pts_t &pts);
-	RESULT connectVideoEvent(const Slot1<void, struct videoEvent> &event, ePtr<eConnection> &connection);
+	RESULT connectVideoEvent(const sigc::slot1<void, struct videoEvent> &event, ePtr<eConnection> &connection);
 	int getVideoWidth();
 	int getVideoHeight();
 	int getVideoProgressive();

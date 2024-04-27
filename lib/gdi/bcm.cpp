@@ -68,6 +68,8 @@ static int exec_list(void)
 		int len;
 	} l;
 
+	if (fb_fd < 0) return -1;
+
 	l.ptr = displaylist;
 	l.len = ptr;
 	ret = ioctl(fb_fd, FBIO_ACCEL, &l);
@@ -124,9 +126,9 @@ void bcm_accel_blit(
 	P(0x2, dst_width);
 	P(0x3, dst_height);
 	P(0x4, 0x7e48888);
-
+	
 	C(0x69); // set output surface
-
+	
 	P(0x2e, dst_x); // prepare output rect
 	P(0x2f, dst_y);
 	P(0x30, dwidth);

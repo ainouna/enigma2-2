@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <ansidebug.h>
 
 
 DEFINE_REF(eDVBFrontendStatus);
@@ -154,6 +153,11 @@ int eDVBTransponderData::getPilot() const
 	return -1;
 }
 
+int eDVBTransponderData::getSystem() const
+{
+	return -1;
+}
+
 int eDVBTransponderData::getIsId() const
 {
 	return -1;
@@ -165,16 +169,6 @@ int eDVBTransponderData::getPLSMode() const
 }
 
 int eDVBTransponderData::getPLSCode() const
-{
-	return -1;
-}
-
-int eDVBTransponderData::getSystem() const
-{
-	return -1;
-}
-
-int eDVBTransponderData::getSystems() const
 {
 	return -1;
 }
@@ -243,7 +237,6 @@ int eDVBSatelliteTransponderData::getInversion() const
 	case INVERSION_AUTO: return eDVBFrontendParametersSatellite::Inversion_Unknown;
 	}
 }
-
 
 int eDVBSatelliteTransponderData::getFrequency() const
 {
@@ -342,11 +335,6 @@ int eDVBSatelliteTransponderData::getSystem() const
 	case SYS_DVBS: return eDVBFrontendParametersSatellite::System_DVB_S;
 	case SYS_DVBS2: return eDVBFrontendParametersSatellite::System_DVB_S2;
 	}
-}
-
-int eDVBSatelliteTransponderData::getSystems() const
-{
-	return -1;
 }
 
 int eDVBSatelliteTransponderData::getIsId() const
@@ -462,11 +450,6 @@ int eDVBCableTransponderData::getSystem() const
 #endif
 }
 
-int eDVBCableTransponderData::getSystems() const
-{
-	return -1;
-}
-
 DEFINE_REF(eDVBTerrestrialTransponderData);
 
 eDVBTerrestrialTransponderData::eDVBTerrestrialTransponderData(struct dtv_property *dtvproperties, unsigned int propertycount, eDVBFrontendParametersTerrestrial &transponderparms, bool original)
@@ -494,10 +477,8 @@ int eDVBTerrestrialTransponderData::getInversion() const
 
 int eDVBTerrestrialTransponderData::getFrequency() const
 {
-	if (originalValues)
-	{
-		return transponderParameters.frequency;
-	}
+	if (originalValues) return transponderParameters.frequency;
+
 	return getProperty(DTV_FREQUENCY);
 }
 
@@ -633,11 +614,6 @@ int eDVBTerrestrialTransponderData::getSystem() const
 	}
 }
 
-int eDVBTerrestrialTransponderData::getSystems() const
-{
-	return -1;
-}
-
 DEFINE_REF(eDVBATSCTransponderData);
 
 eDVBATSCTransponderData::eDVBATSCTransponderData(struct dtv_property *dtvproperties, unsigned int propertycount, eDVBFrontendParametersATSC &transponderparms, bool original)
@@ -698,11 +674,6 @@ int eDVBATSCTransponderData::getSystem() const
 	case SYS_ATSC: return eDVBFrontendParametersATSC::System_ATSC;
 	case SYS_DVBC_ANNEX_B: return eDVBFrontendParametersATSC::System_DVB_C_ANNEX_B;
 	}
-}
-
-int eDVBATSCTransponderData::getSystems() const
-{
-	return -1;
 }
 
 DEFINE_REF(eDVBFrontendData);

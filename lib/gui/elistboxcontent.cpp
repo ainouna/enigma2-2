@@ -1,31 +1,27 @@
 #include <lib/gui/elistbox.h>
 #include <lib/gui/elistboxcontent.h>
-#include <lib/gdi/epoint.h>
 #include <lib/gdi/font.h>
 #include <lib/python/python.h>
-#include <sstream>
-
-using namespace std;
 
 /*
     The basic idea is to have an interface which gives all relevant list
     processing functions, and can be used by the listbox to browse trough
     the list.
-
+    
     The listbox directly uses the implemented cursor. It tries hard to avoid
     iterating trough the (possibly very large) list, so it should be O(1),
     i.e. the performance should not be influenced by the size of the list.
-
-    The list interface knows how to draw the current entry to a specified
+    
+    The list interface knows how to draw the current entry to a specified 
     offset. Different interfaces can be used to adapt different lists,
     pre-filter lists on the fly etc.
-
+    
 		cursorSave/Restore is used to avoid re-iterating the list on redraw.
 		The current selection is always selected as cursor position, the
     cursor is then positioned to the start, and then iterated. This gives
     at most 2x m_items_per_page cursor movements per redraw, indepenent
     of the size of the list.
-
+    
     Although cursorSet is provided, it should be only used when there is no
     other way, as it involves iterating trough the list.
  */
@@ -76,7 +72,7 @@ void eListboxPythonStringContent::cursorEnd()
 int eListboxPythonStringContent::cursorMove(int count)
 {
 	m_cursor += count;
-
+	
 	if (m_cursor < 0)
 		cursorHome();
 	else if (m_cursor > size())
@@ -92,7 +88,7 @@ int eListboxPythonStringContent::cursorValid()
 int eListboxPythonStringContent::cursorSet(int n)
 {
 	m_cursor = n;
-
+	
 	if (m_cursor < 0)
 		cursorHome();
 	else if (m_cursor > size())
@@ -134,7 +130,7 @@ int eListboxPythonStringContent::size()
 		return 0;
 	return PyList_Size(m_list);
 }
-
+	
 void eListboxPythonStringContent::setSize(const eSize &size)
 {
 	m_itemsize = size;
@@ -234,9 +230,6 @@ void eListboxPythonStringContent::paint(gPainter &painter, eWindowStyle &style, 
 			if (local_style)
 			{
 				text_offset += local_style->m_text_offset;
-//HACK VTI hat hier scheinbar einen Fehler und addiert den Textoffset zweimal auf, also machen wir das hier auch so
-				if (local_style->m_use_vti_workaround)
-					text_offset += local_style->m_text_offset;
 
 				if (local_style->m_valign == eListboxStyle::alignTop)
 					flags |= gPainter::RT_VALIGN_TOP;
@@ -254,6 +247,7 @@ void eListboxPythonStringContent::paint(gPainter &painter, eWindowStyle &style, 
 				else if (local_style->m_halign == eListboxStyle::alignBlock)
 					flags |= gPainter::RT_HALIGN_BLOCK;
 			}
+
 			painter.renderText(eRect(text_offset, m_itemsize),
 			 string, flags, border_color, border_size);
 		}
@@ -333,7 +327,6 @@ void eListboxPythonConfigContent::paint(gPainter &painter, eWindowStyle &style, 
 		border_size = local_style->m_border_size;
 		border_color = local_style->m_border_color;
 		fnt = local_style->m_font;
-		fnt2 = local_style->m_secondfont;
 		if (selected)
 		{
 			/* if we have a local background color set, use that. */
@@ -354,11 +347,15 @@ void eListboxPythonConfigContent::paint(gPainter &painter, eWindowStyle &style, 
 		}
 	}
 
-
-	if (!fnt)
-		fnt = new gFont("Regular", 20);
-	if (!fnt2)
+	if (fnt)
+	{
 		fnt2 = new gFont(fnt->family, fnt->pointSize - fnt->pointSize/5);
+	}
+	else
+	{
+		fnt = new gFont("Regular", 20);
+		fnt2 = new gFont("Regular", 16);
+	}
 
 	if (!local_style || !local_style->m_transparent_background)
 		/* if we have no transparent background */
@@ -400,8 +397,8 @@ void eListboxPythonConfigContent::paint(gPainter &painter, eWindowStyle &style, 
 			text = PyObject_Str(text); /* creates a new object - old object was borrowed! */
 			const char *configitemstring = (text && PyString_Check(text)) ? PyString_AsString(text) : "<not-a-string>";
 			Py_XDECREF(text);
-			eSize itemsize = eSize(m_itemsize.width(), m_itemsize.height());
-			ePoint textoffset = ePoint(offset.x(), offset.y());
+			eSize itemsize = eSize(m_itemsize.width()-10, m_itemsize.height());
+			ePoint textoffset = ePoint(offset.x()+5, offset.y());
 
 				/* when we have no label, align value to the left. (FIXME:
 				   don't we want to specifiy this individually?) */
@@ -432,6 +429,7 @@ void eListboxPythonConfigContent::paint(gPainter &painter, eWindowStyle &style, 
 					/* convert type to string */
 				ePyObject type = PyTuple_GET_ITEM(value, 0);
 				const char *atype = (type && PyString_Check(type)) ? PyString_AsString(type) : 0;
+
 				if (atype)
 				{
 					if (!strcmp(atype, "text"))
@@ -443,18 +441,11 @@ void eListboxPythonConfigContent::paint(gPainter &painter, eWindowStyle &style, 
 						para->setFont(fnt2);
 						para->renderString(value);
 						valueWidth = para->getBoundBox().width();
+
 						painter.setFont(fnt2);
-						ePoint text_offset = textoffset;
-
-						int flags = (value_alignment_left ? gPainter::RT_HALIGN_LEFT : gPainter::RT_HALIGN_RIGHT) | gPainter::RT_VALIGN_CENTER;
-
-						if (local_style)
-							if (flags & gPainter::RT_HALIGN_LEFT)
-								text_offset += local_style->m_text_offset;
-							if (flags & gPainter::RT_HALIGN_RIGHT)
-								text_offset = ePoint(textoffset.x() - local_style->m_text_offset.x(), text_offset.y() + local_style->m_text_offset.y());
-
-						painter.renderText(eRect(text_offset, itemsize), value, flags, border_color, border_size);
+						painter.renderText(eRect(textoffset, itemsize), value, (value_alignment_left ?
+							gPainter::RT_HALIGN_LEFT : gPainter::RT_HALIGN_RIGHT) |
+							gPainter::RT_VALIGN_CENTER, border_color, border_size);
 
 							/* pvalue is borrowed */
 					} else if (!strcmp(atype, "slider"))
@@ -467,54 +458,22 @@ void eListboxPythonConfigContent::paint(gPainter &painter, eWindowStyle &style, 
 						int size = (pvalue && PyInt_Check(psize)) ? PyInt_AsLong(psize) : 100;
 
 							/* calc. slider length */
-						//valueWidth = (itemsize.width() - m_seperation -40) * value / size;
-						valueWidth = (itemsize.width() - m_seperation - (itemsize.width()*0.1)) * value / size;
+						valueWidth = (itemsize.width() - m_seperation) * value / size;
 						int height = itemsize.height();
 
-
-						/* draw slider */
+							/* draw slider */
 						//painter.fill(eRect(offset.x() + m_seperation, offset.y(), width, height));
 						//hack - make it customizable
-
-						ePoint slider_offset = textoffset;
-						ePoint text_offset = textoffset;
-						int flags = (value_alignment_left ? gPainter::RT_HALIGN_LEFT : gPainter::RT_HALIGN_RIGHT) | gPainter::RT_VALIGN_CENTER;
-
-						if (local_style)
-							if (flags & gPainter::RT_HALIGN_LEFT)
-								text_offset += local_style->m_text_offset;
-							if (flags & gPainter::RT_HALIGN_RIGHT)
-							{
-								text_offset = ePoint(text_offset.x() - local_style->m_text_offset.x(), text_offset.y() + local_style->m_text_offset.y());
-								slider_offset = ePoint(slider_offset.x() - local_style->m_text_offset.x(), slider_offset.y());
-								valueWidth -= local_style->m_text_offset.x();
-							}
-							if (flags & gPainter::RT_VALIGN_CENTER)
-							{
-								slider_offset = ePoint(slider_offset.x(), slider_offset.y() + height/6);
-							}
-
-						painter.fill(eRect(slider_offset.x() + m_seperation, slider_offset.y(), valueWidth, height*2/3));
-						
-							/* draw text value at the end of the slider*/
-						std::ostringstream sin;
-						sin << value;
-						std::string cvalue = sin.str();
-						painter.setFont(fnt2);
-
-
-						painter.renderText(eRect(text_offset, m_itemsize), cvalue, flags);
- 
+						painter.fill(eRect(textoffset.x() + m_seperation, offset.y() + height/6, valueWidth, height*2/3));
 
 							/* pvalue is borrowed */
 					} else if (!strcmp(atype, "mtext"))
 					{
 						ePyObject pvalue = PyTuple_GET_ITEM(value, 1);
 						const char *text = (pvalue && PyString_Check(pvalue)) ? PyString_AsString(pvalue) : "<not-a-string>";
-						ePoint text_offset = textoffset;
-						ePtr<eTextPara> para = new eTextPara(eRect(text_offset, itemsize));
+						ePtr<eTextPara> para = new eTextPara(eRect(textoffset, itemsize));
 						para->setFont(fnt2);
-						para->renderString(text);
+						para->renderString(text, gPainter::RT_VALIGN_CENTER);
 						para->realign(value_alignment_left ? eTextPara::dirLeft : eTextPara::dirRight);
 						int glyphs = para->size();
 
@@ -540,11 +499,8 @@ void eListboxPythonConfigContent::paint(gPainter &painter, eWindowStyle &style, 
 							else
 							{
 								if (last+1 != num && last != -1) {
-									bbox = eRect(
-									left - (local_style ? local_style->m_text_offset.x() : 0)
-									, textoffset.y()
-									, right-left
-									, itemsize.height());
+									bbox = eRect(left, textoffset.y(), right-left,
+										itemsize.height());
 									painter.fill(bbox);
 								}
 								para->setGlyphFlag(num, GS_INVERT);
@@ -554,25 +510,13 @@ void eListboxPythonConfigContent::paint(gPainter &painter, eWindowStyle &style, 
 								right = bbox.left() + bbox.width();
 								last = num;
 							}
-							// entry is borrowed
+							/* entry is borrowed */
 						}
 						if (last != -1) {
-							bbox = eRect(
-								left - (local_style ? local_style->m_text_offset.x() : 0)
-								, textoffset.y()
-								, right-left, itemsize
-								.height());
+							bbox = eRect(left, textoffset.y(), right-left, itemsize.height());
 							painter.fill(bbox);
 						}
-						if(local_style)
-						{
-							if(value_alignment_left)				//dirLeft
-								painter.renderPara(para, ePoint(local_style->m_text_offset.x(), local_style->m_text_offset.y()));
-							else							//dirRight
-								painter.renderPara(para, ePoint(- (local_style->m_text_offset.x()), local_style->m_text_offset.y()));
-						}
-						else
-							painter.renderPara(para, ePoint(0, 0));
+						painter.renderPara(para, ePoint(0, 0));
 						/* pvalue is borrowed */
 						/* plist is 0 or borrowed */
 					}
@@ -583,19 +527,11 @@ void eListboxPythonConfigContent::paint(gPainter &painter, eWindowStyle &style, 
 			if (value)
 				Py_DECREF(value);
 
+			valueWidth = valueWidth + 10;
 			if (valueWidth > itemsize.width()) { valueWidth = itemsize.width(); }
 			painter.setFont(fnt);
-			ePoint text_offset = textoffset;
-
-			int flags = gPainter::RT_HALIGN_LEFT | gPainter::RT_VALIGN_CENTER;
-
-			if (local_style)
-				if (flags & gPainter::RT_HALIGN_LEFT)
-					text_offset = ePoint(text_offset.x() + local_style->m_text_offset.x(), text_offset.y());
-				if (flags & gPainter::RT_HALIGN_RIGHT)
-					text_offset = ePoint(text_offset.x() - local_style->m_text_offset.x(), text_offset.y() + local_style->m_text_offset.y());
-			painter.renderText(eRect(text_offset, eSize (itemsize.width()-valueWidth,itemsize.height())),
-				configitemstring, flags, border_color, border_size);
+			painter.renderText(eRect(textoffset, eSize (itemsize.width()-valueWidth,itemsize.height())),
+				configitemstring, gPainter::RT_HALIGN_LEFT | gPainter::RT_VALIGN_CENTER, border_color, border_size);
 		}
 
 		if (selected && (!local_style || !local_style->m_selection))
@@ -847,7 +783,7 @@ void eListboxPythonMultiContent::paint(gPainter &painter, eWindowStyle &style, c
 
 		ePyObject data;
 
-			/* if we have a template, use the template for the actual formatting.
+			/* if we have a template, use the template for the actual formatting. 
 				we will later detect that "data" is present, and refer to that, instead
 				of the immediate value. */
 		int start = 1;
@@ -1066,7 +1002,7 @@ void eListboxPythonMultiContent::paint(gPainter &painter, eWindowStyle &style, c
 
 				if ((filled < 0) && data) /* if the string is in a negative number, it refers to the 'data' list. */
 					filled = PyInt_AsLong(PyTuple_GetItem(data, -filled));
-
+					
 							/* don't do anything if percent out of range */
 				if ((filled < 0) || (filled > 100))
 					continue;

@@ -86,7 +86,7 @@ static const std::string getConfigString(const std::string &key, const std::stri
 			std::string line;
 			std::getline(in, line);
 			size_t size = key.size();
-			if (!key.compare(0, size, line) && line[size] == '=') {
+			if (!line.compare(0, size, key) && line[size] == '=') {
 				value = line.substr(size + 1);
 				break;
 			}
@@ -120,7 +120,7 @@ void bsodFatal(const char *component)
 
 	std::string lines = getLogBuffer();
 
-		/* find python-tracebacks, and extract "  File "-strings */
+	/* find python-tracebacks, and extract "  File "-strings */
 	size_t start = 0;
 
 	std::string crash_emailaddr = CRASH_EMAILADDR;
@@ -188,6 +188,8 @@ void bsodFatal(const char *component)
 		time_t t = time(0);
 		struct tm tm;
 		char tm_str[32];
+
+		bool detailedCrash = getConfigBool("config.crash.details", true);
 
 		localtime_r(&t, &tm);
 		strftime(tm_str, sizeof(tm_str), "%a %b %_d %T %Y", &tm);
@@ -365,5 +367,5 @@ void bsodCatchSignals()
 
 void bsodLogInit()
 {
-	logOutput.connect(addToLogbuffer);
+	logOutput.connect(static_cast<void (*)(int, const std::string &  )>(addToLogbuffer));
 }

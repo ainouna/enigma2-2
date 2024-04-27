@@ -24,7 +24,6 @@ void eDVBPMTParser::clearProgramInfo(program &program)
 	program.videoStreams.clear();
 	program.audioStreams.clear();
 	program.subtitleStreams.clear();
-	program.caids.clear();
 	program.pcrPid = -1;
 	program.pmtPid = -1;
 	program.textPid = -1;
@@ -316,6 +315,7 @@ int eDVBPMTParser::getProgramInfo(program &program)
 											video.type = videoStream::vtVC1_SM; // simple main
 										isvideo = 1;
 									}
+									break;
 								}
 								case 0x48455643: /*HEVC */
 									isvideo = 1;

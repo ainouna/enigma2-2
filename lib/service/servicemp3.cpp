@@ -94,7 +94,6 @@ static void gst_sleepms(uint32_t msec)
 	errno = olderrno;
 }
 
-
 // eServiceFactoryMP3
 
 /*
@@ -118,31 +117,41 @@ eServiceFactoryMP3::eServiceFactoryMP3()
 	{
 		std::list<std::string> extensions;
 		extensions.push_back("dts");
-		extensions.push_back("mp2");
 		extensions.push_back("mp3");
-		extensions.push_back("ogg");
-		extensions.push_back("ogm");
-		extensions.push_back("ogv");
-		extensions.push_back("mpg");
-		extensions.push_back("vob");
 		extensions.push_back("wav");
 		extensions.push_back("wave");
+		extensions.push_back("ogg");
+		extensions.push_back("flac");
+		extensions.push_back("m4a");
+		extensions.push_back("mp2");
+		extensions.push_back("m2a");
+		extensions.push_back("wma");
+		extensions.push_back("ac3");
+		extensions.push_back("mka");
+		extensions.push_back("aac");
+		extensions.push_back("ape");
+		extensions.push_back("alac");
+		extensions.push_back("mpg");
+		extensions.push_back("vob");
 		extensions.push_back("m4v");
 		extensions.push_back("mkv");
 		extensions.push_back("avi");
 		extensions.push_back("divx");
 		extensions.push_back("dat");
-		extensions.push_back("flac");
 		extensions.push_back("flv");
 		extensions.push_back("mp4");
 		extensions.push_back("mov");
-		extensions.push_back("m4a");
+		extensions.push_back("wmv");
+		extensions.push_back("asf");
 		extensions.push_back("3gp");
 		extensions.push_back("3g2");
-		extensions.push_back("asf");
-		extensions.push_back("wmv");
-		extensions.push_back("wma");
 		extensions.push_back("webm");
+		extensions.push_back("mpeg");
+		extensions.push_back("mpe");
+		extensions.push_back("rm");
+		extensions.push_back("rmvb");
+		extensions.push_back("ogm");
+		extensions.push_back("ogv");
 		extensions.push_back("m3u8");
 		extensions.push_back("stream");
 		sc->addServiceFactory(eServiceFactoryMP3::id, this, extensions);
@@ -505,7 +514,7 @@ eServiceMP3::eServiceMP3(eServiceReference ref):
 	m_last_seek_pos = 0;
 	m_media_lenght = 0;
 #endif
-	m_useragent = "Enigma2 HbbTV/1.1.1 (+PVR+RTSP+DL;opendroid;;;)";
+	m_useragent = "Enigma2 HbbTV/1.1.1 (+PVR+RTSP+DL;OpenSPA;;;)";
 	m_extra_headers = "";
 	m_download_buffer_path = "";
 	m_prev_decoder_time = -1;
@@ -689,7 +698,7 @@ eServiceMP3::eServiceMP3(eServiceReference ref):
 	{
 		if(dvb_audiosink)
 		{
-			if (m_sourceinfo.is_audio)
+			if(m_sourceinfo.is_audio)
 			{
 				g_object_set(dvb_audiosink, "e2-sync", TRUE, NULL);
 				g_object_set(dvb_audiosink, "e2-async", TRUE, NULL);
@@ -880,7 +889,7 @@ DEFINE_REF(eServiceMP3);
 
 DEFINE_REF(GstMessageContainer);
 
-RESULT eServiceMP3::connectEvent(const Slot2<void,iPlayableService*,int> &event, ePtr<eConnection> &connection)
+RESULT eServiceMP3::connectEvent(const sigc::slot2<void,iPlayableService*,int> &event, ePtr<eConnection> &connection)
 {
 	connection = new eConnection((iPlayableService*)this, m_event.connect(event));
 	return 0;
@@ -934,9 +943,11 @@ RESULT eServiceMP3::stop()
 		gst_element_state_get_name(state),
 		gst_element_state_get_name(pending),
 		gst_element_state_change_return_get_name(ret));
+
 	ret = gst_element_set_state(m_gst_playbin, GST_STATE_NULL);
 	if (ret != GST_STATE_CHANGE_SUCCESS)
 		eDebug("[eServiceMP3] stop GST_STATE_NULL failure");
+
 	if(!m_sourceinfo.is_streaming && m_cuesheet_loaded)
 		saveCuesheet();
 	m_subtitles_paused = false;
@@ -1143,7 +1154,7 @@ RESULT eServiceMP3::trickSeek(gdouble ratio)
 			seekTo(pts);
 		/* pipeline sometimes block due to audio track issue off gstreamer.
 		If the pipeline is blocked up on pending state change to paused ,
-        this issue is solved by seek to playposition*/
+        	this issue is solved by seek to playposition*/
 		ret = gst_element_get_state(m_gst_playbin, &state, &pending, 3LL * GST_SECOND);
 		if (state == GST_STATE_PLAYING && pending == GST_STATE_PAUSED)
 		{
@@ -1197,7 +1208,9 @@ RESULT eServiceMP3::trickSeek(gdouble ratio)
 		if (!strcmp(name, "filesrc") || !strcmp(name, "souphttpsrc"))
 		{
 			/* previous state was already ok if we come here just give all elements time to unpause */
+#if GST_VERSION_MAJOR >= 1
 			m_to_paused = false;
+#endif
 			gst_element_set_state(m_gst_playbin, GST_STATE_PLAYING);
 			ret = gst_element_get_state(m_gst_playbin, &state, &pending, 2 * GST_SECOND);
 #if GST_VERSION_MAJOR >= 1
@@ -1362,6 +1375,7 @@ GstElement *getVideoDecElement(GstElement *m_gst_playbin, int i)
 		
 	return e;
 }
+
 GstElement * getAudioDecElement(GstElement *m_gst_playbin, int i)
 {
 	GstPad *pad = NULL;
@@ -1387,6 +1401,7 @@ GstElement * getAudioDecElement(GstElement *m_gst_playbin, int i)
 		
 	return e;
 } 
+
 void eServiceMP3::AmlSwitchAudio(int index)
 {
 	gint i, n_audio = 0;
@@ -1411,6 +1426,7 @@ void eServiceMP3::AmlSwitchAudio(int index)
 	if(vdec)
 		g_object_set(G_OBJECT(vdec), "pass-through", TRUE, NULL);
 }
+
 unsigned int eServiceMP3::get_pts_pcrscr(void)
 {
 	int handle;
@@ -1420,7 +1436,7 @@ unsigned int eServiceMP3::get_pts_pcrscr(void)
 
 	handle = open("/sys/class/tsync/pts_pcrscr", O_RDONLY);
 	if (handle < 0) {      
-         return value;
+		return value;
 	}
 	size = read(handle, s, sizeof(s));
 	if (size > 0) {
@@ -1430,6 +1446,7 @@ unsigned int eServiceMP3::get_pts_pcrscr(void)
 	return value;
 }
 #endif
+
 RESULT eServiceMP3::getPlayPosition(pts_t &pts)
 {
 	gint64 pos = 0;
@@ -1481,7 +1498,7 @@ RESULT eServiceMP3::getPlayPosition(pts_t &pts)
 // todo :Check if amlogic stb's are always using gstreamer < 1
 // if not this procedure needs to be altered.
 #if HAVE_AMLOGIC
-	if ( (pos = get_pts_pcrscr()) > 0)
+	if ((pos = get_pts_pcrscr()) > 0)
 		pos *= 11111LL;
 #else
 #if GST_VERSION_MAJOR < 1
@@ -2119,7 +2136,6 @@ void eServiceMP3::gstBusCall(GstMessage *msg)
 			break;
 		case GST_MESSAGE_STATE_CHANGED:
 		{
-
 			if(GST_MESSAGE_SRC(msg) != GST_OBJECT(m_gst_playbin))
 				break;
 
@@ -2127,6 +2143,7 @@ void eServiceMP3::gstBusCall(GstMessage *msg)
 
 			if(old_state == new_state)
 				break;
+
 			eDebug("[eServiceMP3] ****STATE TRANSITION %s -> %s ****", gst_element_state_get_name(old_state), gst_element_state_get_name(new_state));
 
 			transition = (GstStateChange)GST_STATE_TRANSITION(old_state, new_state);
@@ -3440,7 +3457,7 @@ void eServiceMP3::loadCuesheet()
 		//eDebug("[eServiceMP3] skip loading cuesheet multiple times");
 		return;
 	}
- 
+
 	m_cue_entries.clear();
 
 	std::string filename = m_ref.path + ".cuts";
@@ -3461,6 +3478,7 @@ void eServiceMP3::loadCuesheet()
 				break;
 			if (!fread(&what, sizeof(what), 1, f))
 				break;
+
 #if GST_VERSION_MAJOR >= 1
 			where_pts = be64toh(where);
 			what = ntohl(what);
@@ -3505,7 +3523,6 @@ void eServiceMP3::loadCuesheet()
 /* cuesheet */
 void eServiceMP3::saveCuesheet()
 {
-
 	std::string filename = m_ref.path;
 	bool removefile = false;
 	struct stat s;
@@ -3571,8 +3588,6 @@ void eServiceMP3::saveCuesheet()
 	else if (m_cue_entries.size() == 0)
 		return;
 #endif
-
-
 
 	FILE *f = fopen(filename.c_str(), "wb");
 

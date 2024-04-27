@@ -6,9 +6,11 @@
 #include <signal.h>
 #include <sys/sysinfo.h>
 #include <sys/mman.h>
+
 #ifdef HAVE_AMLOGIC
 #include <lib/dvb/amldecoder.h>
 #endif
+
 //#define SHOW_WRITE_TIME
 static int determineBufferCount()
 {
@@ -134,7 +136,7 @@ RESULT eDVBDemux::createPESReader(eMainloop *context, ePtr<iDVBPESReader> &reade
 	return res;
 }
 
-RESULT eDVBDemux::createTSRecorder(ePtr<iDVBTSRecorder> &recorder, unsigned int packetsize, bool streaming)
+RESULT eDVBDemux::createTSRecorder(ePtr<iDVBTSRecorder> &recorder, int packetsize, bool streaming)
 {
 	if (m_dvr_busy)
 		return -EBUSY;
@@ -186,7 +188,7 @@ RESULT eDVBDemux::flush()
 	return 0;
 }
 
-RESULT eDVBDemux::connectEvent(const Slot1<void,int> &event, ePtr<eConnection> &conn)
+RESULT eDVBDemux::connectEvent(const sigc::slot1<void,int> &event, ePtr<eConnection> &conn)
 {
 	conn = new eConnection(this, m_event.connect(event));
 	return 0;
@@ -194,7 +196,7 @@ RESULT eDVBDemux::connectEvent(const Slot1<void,int> &event, ePtr<eConnection> &
 
 void eDVBSectionReader::data(int)
 {
-	uint8_t data[4096]; // max. section size
+	__u8 data[4096]; // max. section size
 	int r;
 	r = ::read(fd, data, 4096);
 	if(r < 0)
@@ -208,7 +210,7 @@ void eDVBSectionReader::data(int)
 		unsigned int c;
 		if ((c = crc32((unsigned)-1, data, r)))
 		{
-			eDebug("crc32 failed! is %x\n", c);
+			//eDebug("[eDVBSectionReader] section crc32 failed! is %x\n", c);
 			return;
 		}
 	}
@@ -259,7 +261,6 @@ RESULT eDVBSectionReader::start(const eDVBSectionFilterMask &mask)
 	notifier->start();
 
 	dmx_sct_filter_params sct;
-	memset(&sct, 0, sizeof(sct));
 	sct.pid     = mask.pid;
 	sct.timeout = 0;
 	sct.flags   = DMX_IMMEDIATE_START;
@@ -296,7 +297,7 @@ RESULT eDVBSectionReader::stop()
 	return 0;
 }
 
-RESULT eDVBSectionReader::connectRead(const Slot1<void,const uint8_t*> &r, ePtr<eConnection> &conn)
+RESULT eDVBSectionReader::connectRead(const sigc::slot1<void,const uint8_t*> &r, ePtr<eConnection> &conn)
 {
 	conn = new eConnection(this, read.connect(r));
 	return 0;
@@ -306,7 +307,7 @@ void eDVBPESReader::data(int)
 {
 	while (1)
 	{
-		uint8_t buffer[16384];
+		__u8 buffer[16384];
 		int r;
 		r = ::read(m_fd, buffer, 16384);
 		if (!r)
@@ -370,8 +371,6 @@ RESULT eDVBPESReader::start(int pid)
 	m_notifier->start();
 
 	dmx_pes_filter_params flt;
-	memset(&flt, 0, sizeof(flt));
-
 	flt.pes_type = DMX_PES_OTHER;
 	flt.pid     = pid;
 	flt.input   = DMX_IN_FRONTEND;
@@ -400,7 +399,7 @@ RESULT eDVBPESReader::stop()
 	return 0;
 }
 
-RESULT eDVBPESReader::connectRead(const Slot2<void,const uint8_t*,int> &r, ePtr<eConnection> &conn)
+RESULT eDVBPESReader::connectRead(const sigc::slot2<void,const uint8_t*,int> &r, ePtr<eConnection> &conn)
 {
 	conn = new eConnection(this, m_read.connect(r));
 	return 0;
@@ -517,7 +516,7 @@ int eDVBRecordFileThread::AsyncIO::poll()
 
 int eDVBRecordFileThread::AsyncIO::start(int fd, off_t offset, size_t nbytes, void* buffer)
 {
-	memset(&aio, 0, sizeof(struct aiocb)); // Documentation says "zero it before call".
+	memset(&aio, 0, sizeof(aiocb)); // Documentation says "zero it before call".
 	aio.aio_fildes = fd;
 	aio.aio_nbytes = nbytes;
 	aio.aio_offset = offset;   // Offset can be omitted with O_APPEND
@@ -626,7 +625,6 @@ eDVBRecordStreamThread::eDVBRecordStreamThread(int packetsize) :
 	eDebug("[eDVBRecordStreamThread] allocated %d buffers of %d kB", m_aio.size(), m_buffersize>>10);
 }
 
-
 int eDVBRecordStreamThread::writeData(int len)
 {
 	len = asyncWrite(len);
@@ -734,8 +732,6 @@ RESULT eDVBTSRecorder::start()
 	setBufferSize(1024*1024);
 
 	dmx_pes_filter_params flt;
-	memset(&flt, 0, sizeof(flt));
-
 	flt.pes_type = DMX_PES_OTHER;
 	flt.output  = DMX_OUT_TSDEMUX_TAP;
 	flt.pid     = i->first;
@@ -890,7 +886,7 @@ RESULT eDVBTSRecorder::getFirstPTS(pts_t &pts)
 	return m_thread->getFirstPTS(pts);
 }
 
-RESULT eDVBTSRecorder::connectEvent(const Slot1<void,int> &event, ePtr<eConnection> &conn)
+RESULT eDVBTSRecorder::connectEvent(const sigc::slot1<void,int> &event, ePtr<eConnection> &conn)
 {
 	conn = new eConnection(this, m_event.connect(event));
 	return 0;
@@ -899,8 +895,7 @@ RESULT eDVBTSRecorder::connectEvent(const Slot1<void,int> &event, ePtr<eConnecti
 RESULT eDVBTSRecorder::startPID(int pid)
 {
 	while(true) {
-		uint16_t p = pid;
-		eDebug("[adenin]add PID %d(0x%04x)", p, p);
+		__u16 p = pid;
 		if (::ioctl(m_source_fd, DMX_ADD_PID, &p) < 0) {
 			perror("DMX_ADD_PID");
 			if (errno == EAGAIN || errno == EINTR) {
@@ -919,8 +914,7 @@ void eDVBTSRecorder::stopPID(int pid)
 	if (m_pids[pid] != -1)
 	{
 		while(true) {
-			uint16_t p = pid;
-			eDebug("[adenin]rmove PID %d(0x%04x)", p, p);
+			__u16 p = pid;
 			if (::ioctl(m_source_fd, DMX_REMOVE_PID, &p) < 0) {
 				perror("DMX_REMOVE_PID");
 				if (errno == EAGAIN || errno == EINTR) {

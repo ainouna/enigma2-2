@@ -41,15 +41,15 @@ public:
 
 typedef struct _GstElement GstElement;
 
-class eServiceXine: public iPlayableService, public iPauseableService,
-	public iServiceInformation, public iSeekableService, public Object
+class eServiceXine: public iPlayableService, public iPauseableService, 
+	public iServiceInformation, public iSeekableService, public sigc::trackable
 {
 	DECLARE_REF(eServiceXine);
 public:
 	virtual ~eServiceXine();
 
 		// iPlayableService
-	RESULT connectEvent(const Slot2<void,iPlayableService*,int> &event, ePtr<eConnection> &connection);
+	RESULT connectEvent(const sigc::slot2<void,iPlayableService*,int> &event, ePtr<eConnection> &connection);
 	RESULT start();
 	RESULT stop();
 
@@ -75,9 +75,9 @@ public:
 		// iPausableService
 	RESULT pause();
 	RESULT unpause();
-
+	
 	RESULT info(ePtr<iServiceInformation>&);
-
+	
 		// iSeekableService
 	RESULT getLength(pts_t &SWIG_OUTPUT);
 	RESULT seekTo(pts_t to);
@@ -85,7 +85,7 @@ public:
 	RESULT getPlayPosition(pts_t &SWIG_OUTPUT);
 	RESULT setTrickmode(int trick);
 	RESULT isCurrentlySeekable();
-
+	
 		// iServiceInformation
 	RESULT getName(std::string &name);
 	int getInfo(int w);
@@ -93,8 +93,8 @@ public:
 private:
 	friend class eServiceFactoryXine;
 	std::string m_filename;
-	eServiceXine(const char *filename);
-	Signal2<void,iPlayableService*,int> m_event;
+	eServiceXine(const char *filename);	
+	sigc::signal2<void,iPlayableService*,int> m_event;
 
 	xine_stream_t *stream;
 	xine_video_port_t *vo_port;
@@ -106,10 +106,10 @@ private:
 		stError, stIdle, stRunning, stStopped,
 	};
 	int m_state;
-
+	
 	static void eventListenerWrap(void *user_data, const xine_event_t *event);
 	void eventListener(const xine_event_t *event);
-
+	
 
 	eFixedMessagePump<int> m_pump;
 };

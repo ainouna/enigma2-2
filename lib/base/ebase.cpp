@@ -188,7 +188,7 @@ int eMainloop::processOneEvent(unsigned int twisted_timeout, PyObject **res, ePy
 		if (it != m_timer_list.end())
 		{
 			eTimer *tmr = *it;
-			timespec now;
+			timespec now; 
 			clock_gettime(CLOCK_MONOTONIC, &now);
 			/* process all timers which are ready. first remove them out of the list. */
 			while (tmr->needsActivation(now))
@@ -250,9 +250,20 @@ int eMainloop::processOneEvent(unsigned int twisted_timeout, PyObject **res, ePy
 		}
 	}
 
-	ret = _poll(pfd, fdcount, poll_timeout);
+	m_is_idle = 1;
+	++m_idle_count;
 
-	/* ret > 0 means that there are some active poll entries. */
+	if (this == eApp)
+	{
+		Py_BEGIN_ALLOW_THREADS
+		ret = ::poll(pfd, fdcount, poll_timeout);
+		Py_END_ALLOW_THREADS
+	} else
+		ret = ::poll(pfd, fdcount, poll_timeout);
+
+	m_is_idle = 0;
+
+			/* ret > 0 means that there are some active poll entries. */
 	if (ret > 0)
 	{
 		int i=0;
@@ -276,7 +287,7 @@ int eMainloop::processOneEvent(unsigned int twisted_timeout, PyObject **res, ePy
 					m_inActivate = 0;
 				}
 				if (pfd[i].revents & (POLLERR|POLLHUP|POLLNVAL))
-					eDebug("poll: unhandled POLLERR/HUP/NVAL for fd %d(%d)", pfd[i].fd, pfd[i].revents);
+					eLog(5, "[eMainloop::processOneEvent] unhandled POLLERR/HUP/NVAL for fd %d(%d)", pfd[i].fd, pfd[i].revents);
 			}
 		}
 		for (; i < fdcount; ++i)
@@ -391,27 +402,6 @@ void eMainloop::quit(int ret)
 {
 	retval = ret;
 	app_quit_now = true;
-}
-
-int eMainloop::_poll(struct pollfd *fds, nfds_t nfds, int timeout)
-{
-	return ::poll(fds, nfds, timeout);
-}
-
-int eApplication::_poll(struct pollfd *fds, nfds_t nfds, int timeout)
-{
-	int result;
-
-	m_is_idle = 1;
-	++m_idle_count;
-	/* Py_BEGIN_ALLOW_THREADS contains a memory barrier, and that will
-	 * make the idleCount() and isIdle() interfaces work properly */
-	Py_BEGIN_ALLOW_THREADS
-	result = ::poll(fds, nfds, timeout);
-	Py_END_ALLOW_THREADS
-	m_is_idle = 0;
-
-	return result;
 }
 
 eApplication* eApp = 0;
